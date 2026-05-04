@@ -1,9 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Resolve extensions explicitly so Rollup picks up .jsx from index.html
+  resolve: {
+    extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json'],
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
@@ -17,5 +25,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      // Explicit entry — avoids ambiguity around the script tag in index.html
+      input: path.resolve(__dirname, 'index.html'),
+    },
   },
 });

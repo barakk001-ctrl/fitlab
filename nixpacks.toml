@@ -5,7 +5,16 @@ nixPkgs = ["nodejs_20"]
 cmds = ["npm install --no-audit --no-fund"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "echo '--- Project structure before build ---'",
+  "ls -la",
+  "echo '--- src/ contents ---'",
+  "ls -la src/ || echo 'NO src/ DIR FOUND'",
+  "echo '--- index.html contents ---'",
+  "cat index.html",
+  "echo '--- starting build ---'",
+  "npm run build"
+]
 
 [start]
 cmd = "npm run preview"
