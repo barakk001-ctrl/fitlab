@@ -2297,6 +2297,89 @@ function StatBox({ label, value, sub, accent = PALETTE.ink, dark = false }) {
 }
 
 // ------------------------------------------------------------
+// Body diagram — self-contained SVG silhouette with a highlighted region
+// ------------------------------------------------------------
+
+function BodyDiagram({ area, active, size = 26 }) {
+  const baseColor = active ? PALETTE.cream : PALETTE.ink;
+  const hiColor = active ? PALETTE.cream : PALETTE.rust;
+  const base = { fill: baseColor, opacity: 0.3 };
+  const hi = { fill: hiColor, opacity: 0.95 };
+
+  const highlights = {
+    neck: <rect x="17" y="12.5" width="6" height="5.5" rx="1.5" style={hi} />,
+    shoulders: (
+      <g style={hi}>
+        <circle cx="11.5" cy="20.5" r="3.4" />
+        <circle cx="28.5" cy="20.5" r="3.4" />
+      </g>
+    ),
+    chest: <rect x="12.5" y="20" width="15" height="8" rx="2.5" style={hi} />,
+    back: <rect x="18" y="19" width="4" height="22" rx="2" style={hi} />,
+    hips: (
+      <g style={hi}>
+        <rect x="11.5" y="40" width="5.5" height="7" rx="2.5" />
+        <rect x="23" y="40" width="5.5" height="7" rx="2.5" />
+      </g>
+    ),
+    glutes: <rect x="13" y="42.5" width="14" height="8" rx="3.5" style={hi} />,
+    hamstrings: (
+      <g style={hi}>
+        <rect x="13.6" y="50" width="5.8" height="12" rx="2.6" />
+        <rect x="20.6" y="50" width="5.8" height="12" rx="2.6" />
+      </g>
+    ),
+    quads: (
+      <g style={hi}>
+        <rect x="13.6" y="50" width="5.8" height="21" rx="2.6" />
+        <rect x="20.6" y="50" width="5.8" height="21" rx="2.6" />
+      </g>
+    ),
+    calves: (
+      <g style={hi}>
+        <rect x="14.1" y="71" width="5.1" height="22" rx="2.4" />
+        <rect x="20.8" y="71" width="5.1" height="22" rx="2.4" />
+      </g>
+    ),
+    wrists: (
+      <g style={hi}>
+        <circle cx="9.3" cy="41" r="2.9" />
+        <circle cx="30.7" cy="41" r="2.9" />
+      </g>
+    ),
+  };
+
+  return (
+    <svg
+      width={size * 0.42}
+      height={size}
+      viewBox="0 0 40 100"
+      aria-hidden="true"
+      style={{ flexShrink: 0, display: 'block' }}
+    >
+      {/* Shared humanoid silhouette */}
+      <g style={base}>
+        <circle cx="20" cy="8" r="6" />
+        <rect x="17.5" y="13" width="5" height="5" />
+        <rect x="9" y="18.5" width="22" height="5" rx="2.5" />
+        <rect x="12" y="20" width="16" height="22" rx="3" />
+        <rect x="8" y="20" width="4" height="20" rx="2" />
+        <rect x="28" y="20" width="4" height="20" rx="2" />
+        <circle cx="9.3" cy="41" r="2.5" />
+        <circle cx="30.7" cy="41" r="2.5" />
+        <rect x="13" y="41" width="14" height="9" rx="3" />
+        <rect x="13.6" y="49" width="5.8" height="23" rx="2.8" />
+        <rect x="20.6" y="49" width="5.8" height="23" rx="2.8" />
+        <rect x="14.1" y="71" width="5.1" height="23" rx="2.4" />
+        <rect x="20.8" y="71" width="5.1" height="23" rx="2.4" />
+      </g>
+      {/* Region highlight */}
+      {highlights[area] || null}
+    </svg>
+  );
+}
+
+// ------------------------------------------------------------
 // Stretch picker view
 // ------------------------------------------------------------
 
@@ -2304,7 +2387,6 @@ function StretchPicker({
   lang, setLang, mode, setMode,
   routine, onPickRoutine,
   selectedAreas, onToggleArea,
-  hold, setHold,
   onSubmit,
   savedPlans, onLoadPlan, onDeletePlan,
 }) {
@@ -2428,43 +2510,12 @@ function StretchPicker({
                   borderRadius: '999px',
                   display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
                 }}>
-                {active && <Check size={12} strokeWidth={3} />}
+                <BodyDiagram area={area.id} active={active} />
                 {area.label[lang]}
+                {active && <Check size={12} strokeWidth={3} />}
               </button>
             );
           })}
-        </div>
-      </section>
-
-      {/* 03 — HOLD DURATION */}
-      <section className="px-6 md:px-12 pt-12 pb-6">
-        <div className="flex items-baseline justify-between mb-3 flex-wrap gap-3">
-          <h2 className="f-display text-3xl md:text-4xl font-bold" style={{ color: PALETTE.ink }}>
-            <span className="f-mono text-xs align-middle" style={{ opacity: 0.5, marginInlineEnd: '0.75rem' }}>03 /</span>
-            {t('stretch_section_hold', lang)}
-          </h2>
-          <span className="f-display font-bold" style={{ color: PALETTE.rust, fontSize: 'clamp(28px,4vw,44px)', lineHeight: 1 }} dir="ltr">
-            {hold}s
-          </span>
-        </div>
-        <p className="f-body text-sm max-w-2xl mb-6" style={{ opacity: 0.75 }}>
-          {t('stretch_hold_explainer', lang)}
-        </p>
-        <div className="max-w-xl" dir="ltr">
-          <div className="p-5" style={{ background: PALETTE.ink, borderRadius: '12px' }}>
-            <input
-              type="range"
-              min={15}
-              max={90}
-              step={5}
-              value={hold}
-              onChange={(e) => setHold(parseInt(e.target.value, 10))}
-              className="rest-slider"
-            />
-            <div className="flex justify-between mt-2 f-mono" style={{ fontSize: '10px', color: PALETTE.cream, opacity: 0.5 }}>
-              <span>15s</span><span>30s</span><span>45s</span><span>60s</span><span>90s</span>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -4385,7 +4436,6 @@ export default function FitLab() {
             onPickRoutine={handlePickRoutine}
             selectedAreas={stretchAreas}
             onToggleArea={toggleArea}
-            hold={stretchHold} setHold={setStretchHold}
             onSubmit={() => stretchRoutine && setView('plan')}
             savedPlans={savedPlans}
             onLoadPlan={handleLoadPlan}
