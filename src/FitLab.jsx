@@ -1513,6 +1513,54 @@ const STRETCHES = {
   'prayer-stretch':  { area: 'wrists',     name: { en: 'Prayer Stretch',           he: 'מתיחת התפילה' },           perSide: false, query: 'prayer wrist stretch' },
 };
 
+// Curated, validated YouTube demonstration videos per stretch (oEmbed-checked, public + embeddable).
+// Falls back to the YouTube search link when an id has no entry here.
+const STRETCH_VIDEOS = {
+  'neck-tilt': '54y0JAT46vE',
+  'neck-rotation': 'ubQjw0p_WDA',
+  'chin-tuck': 'u8C5LgpK3r4',
+  'upper-trap': 'YVeNysiuHz0',
+  'cross-arm': 'aIq0fLi8iak',
+  'shoulder-roll': 'IKJZL4hvppw',
+  'doorway-shoulder': 'Dmm8_S23I74',
+  'thread-needle': 'UomKzkyp6kQ',
+  'doorway-chest': 'M850sCj9LHQ',
+  'chest-floor': 'ajyYXAERp3k',
+  'cobra': 'YYudWYM5Q9g',
+  'cat-cow': 'jGR2LTqGI2Y',
+  'child-pose': 'kH12QrSGedM',
+  'seated-twist': 'ciGK6HyYqV4',
+  'knees-chest': 'LugNxxfIdvo',
+  'sphinx': 'beQs5ChCZ0U',
+  'pigeon': '46phRH_09yM',
+  'butterfly': 'd0GxYvs3j0M',
+  'lizard': 'Abtm3CF_cVE',
+  'frog': 'E3hA2p1d57g',
+  'hip-flexor': 'Q4Ko275cluo',
+  'fig-four': '5BqMsUYg_Q8',
+  'seated-glute': 'e3DZzHcwk3o',
+  'glute-bridge-hold': 'FFLNpa2CN_Q',
+  'standing-ham': '2s2t3mEYZNo',
+  'seated-fwd': 'oJX8EKF3TqM',
+  'supine-ham': 'Il1L75v6gq0',
+  'standing-quad': 'kia2OzZiwqw',
+  'couch-stretch': 'nTJaGnjUkTY',
+  'kneeling-quad': 'dLnIM3KDReo',
+  'wall-calf': 'YTYQo4WvJHA',
+  'downward-dog': 'ZnM3u0rU6ws',
+  'step-calf': 'drJYhTQWcAk',
+  'wrist-flexor': 'i-JV2PsFzWA',
+  'wrist-extensor': '_uINTR_7X-g',
+  'prayer-stretch': 'vjhQCfF5Y-g',
+};
+
+// Build a YouTube embed URL for a video id. autoplay → muted looping ambient demo.
+function stretchEmbedSrc(video, { autoplay = false } = {}) {
+  const params = ['rel=0', 'modestbranding=1', 'playsinline=1'];
+  if (autoplay) params.push('autoplay=1', 'mute=1', 'loop=1', `playlist=${video}`);
+  return `https://www.youtube-nocookie.com/embed/${video}?${params.join('&')}`;
+}
+
 // Build a stretch routine from a routine type + chosen areas + hold override.
 // If areas are chosen, they filter/extend the routine's default areas.
 function buildStretchRoutine(routineId, chosenAreas, holdOverride) {
@@ -1531,6 +1579,7 @@ function buildStretchRoutine(routineId, chosenAreas, holdOverride) {
       items.push({
         id,
         ...s,
+        video: STRETCH_VIDEOS[id] || null,
         hold,
         // Per-side stretches get listed once but timer doubles via perSide flag
       });
@@ -2545,6 +2594,29 @@ function StretchPicker({
 }
 
 // ------------------------------------------------------------
+// Embedded stretch demonstration video (responsive 16:9)
+// ------------------------------------------------------------
+
+function StretchVideo({ video, title, autoplay = false, lazy = false, maxWidth }) {
+  if (!video) return null;
+  return (
+    <div style={{
+      position: 'relative', width: '100%', maxWidth: maxWidth || '100%',
+      aspectRatio: '16 / 9', borderRadius: '8px', overflow: 'hidden', background: '#000',
+    }}>
+      <iframe
+        src={stretchEmbedSrc(video, { autoplay })}
+        title={title || 'Stretch demonstration'}
+        loading={lazy ? 'lazy' : 'eager'}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+      />
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
 // Stretch sequence row
 // ------------------------------------------------------------
 
@@ -2572,6 +2644,11 @@ function StretchRow({ idx, item, lang }) {
           style={{ color: PALETTE.rust, opacity: 0.85, width: 'fit-content' }}>
           {t('watch_form', lang)} <ExternalLink size={11} strokeWidth={2} />
         </a>
+        {item.video && (
+          <div className="mt-3">
+            <StretchVideo video={item.video} title={item.name.en} lazy maxWidth={420} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2832,7 +2909,7 @@ function GuidedPlayer({ items, lang, onClose }) {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 text-center overflow-y-auto">
         {finished ? (
           <div className="rise">
             <div className="flex items-center justify-center mx-auto mb-6" style={{ width: 80, height: 80, borderRadius: '50%', background: PALETTE.sage }}>
@@ -2889,8 +2966,19 @@ function GuidedPlayer({ items, lang, onClose }) {
               </div>
             )}
 
-            <div className="relative mx-auto mt-8" style={{ width: 220, height: 220 }}>
-              <svg width="220" height="220" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
+            {currentPhase.item.video && (
+              <div className="mt-7 mx-auto" style={{ width: '100%', maxWidth: 480 }}>
+                <StretchVideo
+                  key={currentPhase.item.id}
+                  video={currentPhase.item.video}
+                  title={currentPhase.item.name.en}
+                  autoplay
+                />
+              </div>
+            )}
+
+            <div className="relative mx-auto mt-7" style={{ width: currentPhase.item.video ? 168 : 220, height: currentPhase.item.video ? 168 : 220 }}>
+              <svg width="100%" height="100%" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(242,235,221,0.15)" strokeWidth="8" />
                 <circle cx="110" cy="110" r="100" fill="none" stroke={PALETTE.sage} strokeWidth="8" strokeLinecap="round"
                   strokeDasharray={2 * Math.PI * 100}
@@ -2898,7 +2986,7 @@ function GuidedPlayer({ items, lang, onClose }) {
                   style={{ transition: 'stroke-dashoffset 1s linear' }} />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="f-display font-bold" style={{ fontSize: '72px', lineHeight: 1 }} dir="ltr">
+                <span className="f-display font-bold" style={{ fontSize: currentPhase.item.video ? '54px' : '72px', lineHeight: 1 }} dir="ltr">
                   {secondsLeft}
                 </span>
               </div>
