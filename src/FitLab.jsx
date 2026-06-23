@@ -1398,7 +1398,13 @@ const STRETCH_AREAS = [
   { id: 'wrists',     label: { en: 'Wrists',      he: 'מפרקי כף יד' },  icon: PersonStanding },
 ];
 
-// Routine types — preset structures
+// Routine types — preset structures.
+// Hold durations follow mainstream flexibility guidance: a single static stretch
+// of ~30s is the canonical recommendation for general flexibility (ACSM 2011
+// position stand: 10–30s; Mayo Clinic: ~30s; AHA: 10–30s), and holds beyond 30s
+// give no extra range-of-motion benefit for general flexibility (Konrad et al.,
+// 2023 meta-analysis). 30–60s is reserved for deeper / restorative work. All
+// stretches should be taken only to mild tension, never pain.
 const STRETCH_ROUTINES = {
   morning: {
     id: 'morning',
@@ -1417,9 +1423,9 @@ const STRETCH_ROUTINES = {
     icon: Wind,
     tagline: { en: 'Bring the heart rate down. Lengthen what you just worked.',
                he: 'להוריד את הדופק. להאריך את מה שעבדתם.' },
-    blurb: { en: 'Static stretches held longer to aid recovery and flexibility after training.',
-             he: 'מתיחות סטטיות מוחזקות זמן רב יותר לשיפור התאוששות וגמישות אחרי אימון.' },
-    defaultHold: 40,
+    blurb: { en: 'Static stretches to aid recovery and flexibility after training.',
+             he: 'מתיחות סטטיות לשיפור התאוששות וגמישות אחרי אימון.' },
+    defaultHold: 30,
     areas: ['quads', 'hamstrings', 'glutes', 'chest', 'shoulders'],
   },
   full: {
