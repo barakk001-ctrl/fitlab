@@ -220,6 +220,8 @@ const STRINGS = {
     // Guided player
     guided_title: 'Guided session',
     guided_get_ready: 'Get ready',
+    guided_start: 'Start stretch',
+    guided_watch_first: 'Watch the video, then start when ready',
     guided_switch_side: 'Switch sides',
     guided_next_up: 'Next up',
     guided_complete: 'Session complete',
@@ -427,6 +429,8 @@ const STRINGS = {
     // Guided player
     guided_title: 'מפגש מודרך',
     guided_get_ready: 'התכוננו',
+    guided_start: 'התחילו מתיחה',
+    guided_watch_first: 'צפו בסרטון, והתחילו כשמוכנים',
     guided_switch_side: 'החליפו צד',
     guided_next_up: 'הבא בתור',
     guided_complete: 'המפגש הושלם',
@@ -2813,69 +2817,67 @@ function buildPhases(items, lang) {
 
 function GuidedPlayer({ items, lang, onClose }) {
   const phases = useMemo(() => buildPhases(items, lang), [items, lang]);
-  const READY_SECONDS = 5;
 
-  const [phaseIdx, setPhaseIdx] = useState(-1);
-  const [secondsLeft, setSecondsLeft] = useState(READY_SECONDS);
+  // A phase is the first of its stretch when the item id differs from the previous phase.
+  // The first phase of each stretch waits for a manual Start; later sides auto-continue.
+  const isStretchStart = (idx) => idx === 0 || phases[idx].item.id !== phases[idx - 1].item.id;
+
+  const [phaseIdx, setPhaseIdx] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(() => phases[0]?.seconds ?? 0);
+  const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [finished, setFinished] = useState(false);
-  const beepRef = useRef(false);
 
-  const isReady = phaseIdx === -1;
-  const currentPhase = phaseIdx >= 0 ? phases[phaseIdx] : null;
+  const currentPhase = phases[phaseIdx] || null;
+  // Waiting on the user to begin this stretch (first side not yet started).
+  const awaitingStart = !running && !finished;
 
-  useEffect(() => {
-    if (finished) return;
-    if (isReady) {
-      setSecondsLeft(READY_SECONDS);
-    } else if (currentPhase) {
-      setSecondsLeft(currentPhase.seconds);
-    }
-    beepRef.current = false;
-  }, [phaseIdx, finished]);
-
-  useEffect(() => {
-    if (paused || finished) return;
-    if (secondsLeft <= 0) {
-      if (isReady) {
-        setPhaseIdx(0);
-      } else if (phaseIdx < phases.length - 1) {
-        if (!beepRef.current) { beepRef.current = true; playBeep(180, 760); }
-        setPhaseIdx(i => i + 1);
-      } else {
-        if (!beepRef.current) { beepRef.current = true; playBeep(300, 880); setTimeout(() => playBeep(300, 1040), 300); }
-        setFinished(true);
-      }
-      return;
-    }
-    const id = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [secondsLeft, paused, finished, phaseIdx, isReady, phases.length]);
-
-  const skip = () => {
-    beepRef.current = false;
-    if (isReady) { setPhaseIdx(0); return; }
-    if (phaseIdx < phases.length - 1) setPhaseIdx(i => i + 1);
-    else setFinished(true);
+  // Enter a phase: reset its timer and auto-run only if it's a continuation (e.g. Side 2).
+  // secondsLeft is set together with phaseIdx so the ticking effect never sees a stale 0.
+  const enterPhase = (idx) => {
+    setPhaseIdx(idx);
+    setSecondsLeft(phases[idx].seconds);
+    setRunning(!isStretchStart(idx));
   };
+
+  const advance = (withBeep) => {
+    if (phaseIdx < phases.length - 1) {
+      if (withBeep) playBeep(180, 760);
+      enterPhase(phaseIdx + 1);
+    } else {
+      if (withBeep) { playBeep(300, 880); setTimeout(() => playBeep(300, 1040), 300); }
+      setRunning(false);
+      setFinished(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!running || paused || finished) return;
+    if (secondsLeft <= 0) { advance(true); return; }
+    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [running, paused, finished, secondsLeft, phaseIdx]);
+
+  const start = () => { setPaused(false); setRunning(true); };
+  const skip = () => advance(false);
 
   const restart = () => {
     setFinished(false);
-    setPhaseIdx(-1);
-    setSecondsLeft(READY_SECONDS);
     setPaused(false);
-    beepRef.current = false;
+    setRunning(false);
+    setPhaseIdx(0);
+    setSecondsLeft(phases[0]?.seconds ?? 0);
   };
 
   const progressPct = phases.length > 0
-    ? Math.round(((phaseIdx < 0 ? 0 : phaseIdx) / phases.length) * 100)
+    ? Math.round((phaseIdx / phases.length) * 100)
     : 0;
 
-  const nextPhase = !isReady && phaseIdx < phases.length - 1 ? phases[phaseIdx + 1] : null;
+  const nextPhase = phaseIdx < phases.length - 1 ? phases[phaseIdx + 1] : null;
 
   // Count which stretch (not phase) we're on, for "Stretch i of n"
   const stretchNumber = (() => {
-    if (isReady || !currentPhase) return 1;
+    if (!currentPhase) return 1;
     let count = 0;
     let lastItemId = null;
     for (let k = 0; k <= phaseIdx; k++) {
@@ -2934,20 +2936,6 @@ function GuidedPlayer({ items, lang, onClose }) {
               </button>
             </div>
           </div>
-        ) : isReady ? (
-          <div className="rise">
-            <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-4" style={{ color: PALETTE.sage }}>
-              {t('guided_get_ready', lang)}
-            </div>
-            <div className="f-display font-bold timer-pulse" style={{ fontSize: 'clamp(80px,18vw,180px)', lineHeight: 1, color: PALETTE.rust }} dir="ltr">
-              {secondsLeft}
-            </div>
-            {phases[0] && (
-              <div className="f-italic text-xl md:text-2xl mt-4" style={{ opacity: 0.8 }} dir="ltr">
-                {phases[0].item.name[lang]}
-              </div>
-            )}
-          </div>
         ) : (
           <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
             <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: PALETTE.sage }}>
@@ -2992,7 +2980,11 @@ function GuidedPlayer({ items, lang, onClose }) {
               </div>
             </div>
 
-            {nextPhase && (
+            {awaitingStart ? (
+              <div className="f-mono text-[10px] uppercase tracking-[0.25em] mt-6" style={{ color: PALETTE.sage }}>
+                {t('guided_watch_first', lang)}
+              </div>
+            ) : nextPhase && (
               <div className="f-mono text-[10px] uppercase tracking-[0.25em] mt-8" style={{ opacity: 0.55 }} dir="ltr">
                 {t('guided_next_up', lang)}: {nextPhase.item.name[lang]}
               </div>
@@ -3003,12 +2995,20 @@ function GuidedPlayer({ items, lang, onClose }) {
 
       {!finished && (
         <div className="flex items-center justify-center gap-3 px-6 py-8 flex-wrap">
-          <button onClick={() => setPaused(p => !p)}
-            className="f-mono uppercase tracking-[0.2em] px-6 py-3 text-xs flex items-center gap-2"
-            style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 120, justifyContent: 'center' }}>
-            {paused ? <Play size={13} strokeWidth={2} /> : <Pause size={13} strokeWidth={2} />}
-            {paused ? t('guided_resume', lang) : t('guided_pause', lang)}
-          </button>
+          {awaitingStart ? (
+            <button onClick={start}
+              className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
+              style={{ background: PALETTE.sage, color: PALETTE.ink, border: `1px solid ${PALETTE.sage}`, borderRadius: '999px', minWidth: 160, justifyContent: 'center' }}>
+              <Play size={14} strokeWidth={2.5} /> {t('guided_start', lang)}
+            </button>
+          ) : (
+            <button onClick={() => setPaused(p => !p)}
+              className="f-mono uppercase tracking-[0.2em] px-6 py-3 text-xs flex items-center gap-2"
+              style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 120, justifyContent: 'center' }}>
+              {paused ? <Play size={13} strokeWidth={2} /> : <Pause size={13} strokeWidth={2} />}
+              {paused ? t('guided_resume', lang) : t('guided_pause', lang)}
+            </button>
+          )}
           <button onClick={skip}
             className="f-mono uppercase tracking-[0.2em] px-6 py-3 text-xs flex items-center gap-2"
             style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
