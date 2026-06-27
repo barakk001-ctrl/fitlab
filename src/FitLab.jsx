@@ -262,6 +262,10 @@ const STRINGS = {
     build_sets: 'sets',
     build_reps: 'reps',
     build_remove: 'Remove',
+    build_save: 'Save session',
+    build_default_name: 'My session',
+    custom_badge: 'Custom',
+    build_moves: '{n} moves',
     mode_question: 'What are you building today?',
 
     // Stretch picker
@@ -551,6 +555,10 @@ const STRINGS = {
     build_sets: 'סטים',
     build_reps: 'חזרות',
     build_remove: 'הסרה',
+    build_save: 'שמירת אימון',
+    build_default_name: 'האימון שלי',
+    custom_badge: 'מותאם',
+    build_moves: '{n} תרגילים',
     mode_question: 'מה בונים היום?',
 
     // Stretch picker
@@ -4117,10 +4125,10 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
 // Custom workout builder
 // ------------------------------------------------------------
 
-function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart }) {
+function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart, items, setItems, onSaveOpen, savedCustoms, onLoadPlan, onDeletePlan }) {
   const [query, setQuery] = useState('');
   const [equip, setEquip] = useState('all'); // all | gym | cali
-  const [selected, setSelected] = useState([]); // [{id, sets, reps}]
+  const selected = items;
   const ArrowBack = isRTL(lang) ? ArrowRight : ArrowLeft;
   const selectedIds = new Set(selected.map((s) => s.id));
 
@@ -4133,9 +4141,9 @@ function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart }) {
     });
   }, [query, equip]);
 
-  const add = (id) => setSelected((prev) => prev.some((s) => s.id === id) ? prev : [...prev, { id, sets: 3, reps: 10 }]);
-  const remove = (id) => setSelected((prev) => prev.filter((s) => s.id !== id));
-  const bump = (id, field, delta) => setSelected((prev) => prev.map((s) => s.id === id ? { ...s, [field]: Math.max(1, s[field] + delta) } : s));
+  const add = (id) => setItems((prev) => prev.some((s) => s.id === id) ? prev : [...prev, { id, sets: 3, reps: 10 }]);
+  const remove = (id) => setItems((prev) => prev.filter((s) => s.id !== id));
+  const bump = (id, field, delta) => setItems((prev) => prev.map((s) => s.id === id ? { ...s, [field]: Math.max(1, s[field] + delta) } : s));
 
   const start = () => {
     if (!selected.length) return;
@@ -4205,13 +4213,24 @@ function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart }) {
               ))}
             </div>
           )}
-          <button onClick={start} disabled={selected.length === 0}
-            className="mt-5 f-mono uppercase tracking-[0.2em] px-7 py-3.5 text-xs flex items-center gap-2"
-            style={{ background: selected.length ? PALETTE.ink : 'transparent', color: selected.length ? PALETTE.cream : PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px', opacity: selected.length ? 1 : 0.4, cursor: selected.length ? 'pointer' : 'not-allowed' }}>
-            <Play size={13} strokeWidth={2.5} /> {t('start_session', lang)}
-          </button>
+          <div className="flex items-center gap-3 mt-5 flex-wrap">
+            <button onClick={start} disabled={selected.length === 0}
+              className="f-mono uppercase tracking-[0.2em] px-7 py-3.5 text-xs flex items-center gap-2"
+              style={{ background: selected.length ? PALETTE.ink : 'transparent', color: selected.length ? PALETTE.cream : PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px', opacity: selected.length ? 1 : 0.4, cursor: selected.length ? 'pointer' : 'not-allowed' }}>
+              <Play size={13} strokeWidth={2.5} /> {t('start_session', lang)}
+            </button>
+            <button onClick={onSaveOpen} disabled={selected.length === 0}
+              className="f-mono uppercase tracking-[0.2em] px-6 py-3.5 text-xs flex items-center gap-2"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px', opacity: selected.length ? 1 : 0.4, cursor: selected.length ? 'pointer' : 'not-allowed' }}>
+              <Bookmark size={12} strokeWidth={2} /> {t('build_save', lang)}
+            </button>
+          </div>
         </div>
       </section>
+
+      {savedCustoms && savedCustoms.length > 0 && (
+        <SavedPlansSection savedPlans={savedCustoms} onLoad={onLoadPlan} onDelete={onDeletePlan} lang={lang} />
+      )}
 
       {/* Library */}
       <section className="px-6 md:px-12 pb-16">
@@ -5326,12 +5345,18 @@ function SavedPlansSection({ savedPlans, onLoad, onDelete, lang }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {savedPlans.map((plan) => {
           const isStretch = plan.type === 'stretch';
+          const isCustom = plan.type === 'custom';
 
           // Derive display fields per type
           let topLabel = '';
           let subLabel = '';
           let badge = '';
-          if (isStretch) {
+          if (isCustom) {
+            const cItems = plan.custom?.items || [];
+            topLabel = t('build_moves', lang, { n: cItems.length });
+            subLabel = cItems.slice(0, 3).map(s => EX[s.id]?.name).filter(Boolean).join(' · ') + (cItems.length > 3 ? ' …' : '');
+            badge = t('custom_badge', lang);
+          } else if (isStretch) {
             const r = STRETCH_ROUTINES[plan.stretch?.routine];
             topLabel = r ? `${plan.stretch?.hold ?? r.defaultHold}s` : '';
             const areas = (plan.stretch?.areas && plan.stretch.areas.length > 0)
@@ -5364,7 +5389,7 @@ function SavedPlansSection({ savedPlans, onLoad, onDelete, lang }) {
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="f-mono text-[10px] uppercase tracking-[0.25em] flex items-center gap-1.5" style={{ color: isStretch ? PALETTE.forest : PALETTE.rust }}>
-                    {isStretch ? <StretchHorizontal size={11} strokeWidth={2} /> : <Dumbbell size={11} strokeWidth={2} />}
+                    {isStretch ? <StretchHorizontal size={11} strokeWidth={2} /> : isCustom ? <ListChecks size={11} strokeWidth={2} /> : <Dumbbell size={11} strokeWidth={2} />}
                     {topLabel}
                   </div>
                   <span className="f-mono text-[9px] uppercase tracking-widest px-2 py-0.5"
@@ -5451,6 +5476,10 @@ export default function FitLab() {
 
   // Guided workout session: { exercises, label, dayName } or null
   const [workoutSession, setWorkoutSession] = useState(null);
+
+  // Custom workout builder
+  const [customItems, setCustomItems] = useState([]); // [{id, sets, reps}]
+  const [customSaveOpen, setCustomSaveOpen] = useState(false);
 
   // 30-day challenge: { start, done } or null
   const [challenge, setChallenge] = useState(null);
@@ -5539,6 +5568,25 @@ export default function FitLab() {
     }
   };
 
+  const handleSaveCustom = async (name) => {
+    setSaveStatus('saving');
+    const existing = savedPlans.find(p => p.id === currentPlanId && p.type === 'custom');
+    const id = existing ? currentPlanId : (Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
+    const plan = { id, type: 'custom', name, savedAt: Date.now(), custom: { items: customItems } };
+    const newList = existing ? savedPlans.map(p => p.id === id ? plan : p) : [plan, ...savedPlans];
+    const ok = await persistAllPlans(newList);
+    if (ok) {
+      setSavedPlans(newList);
+      setCurrentPlanId(id);
+      setSaveStatus('saved');
+      setCustomSaveOpen(false);
+      showToast(t('saved_toast', lang));
+      setTimeout(() => setSaveStatus('idle'), 200);
+    } else {
+      setSaveStatus('error');
+    }
+  };
+
   const handleDeletePlan = async (id) => {
     const newList = savedPlans.filter(p => p.id !== id);
     const ok = await persistAllPlans(newList);
@@ -5549,6 +5597,13 @@ export default function FitLab() {
   };
 
   const handleLoadPlan = (plan) => {
+    if (plan.type === 'custom') {
+      setCustomItems(plan.custom?.items ?? []);
+      setMode('workout');
+      setCurrentPlanId(plan.id);
+      setView('custom');
+      return;
+    }
     if (plan.type === 'stretch') {
       const s = plan.stretch || {};
       setMode('stretch');
@@ -5585,7 +5640,7 @@ export default function FitLab() {
     if (!currentPlanId) return;
     const idx = savedPlans.findIndex(p => p.id === currentPlanId);
     if (idx === -1) return;
-    if (savedPlans[idx].type === 'stretch') return; // stretch plans have no live progress
+    if (savedPlans[idx].type !== 'workout') return; // only generated workout plans have live progress
     const updated = {
       ...savedPlans[idx],
       progress: { weekNum, swaps, completions: serializeCompletions(completions) },
@@ -5884,6 +5939,12 @@ export default function FitLab() {
           mode={mode} setMode={handleSetMode}
           onBack={() => setView('picker')}
           onStart={(exercises) => setWorkoutSession({ exercises, label: t('build_own', lang), dayName: '', kind: 'workout' })}
+          items={customItems}
+          setItems={setCustomItems}
+          onSaveOpen={() => { setSaveStatus('idle'); setCustomSaveOpen(true); }}
+          savedCustoms={savedPlans.filter(p => p.type === 'custom')}
+          onLoadPlan={handleLoadPlan}
+          onDeletePlan={handleDeletePlan}
         />
       ) : view === 'picker' ? (
         <PickerView
@@ -5941,6 +6002,18 @@ export default function FitLab() {
                 : buildAutoName(age, goals, split, lang))
         }
         onSave={handleSavePlan}
+        lang={lang}
+        status={saveStatus}
+      />
+
+      <SaveModal
+        open={customSaveOpen}
+        onClose={() => setCustomSaveOpen(false)}
+        defaultName={
+          (currentPlanId && savedPlans.find(p => p.id === currentPlanId && p.type === 'custom')?.name)
+          || t('build_default_name', lang)
+        }
+        onSave={handleSaveCustom}
         lang={lang}
         status={saveStatus}
       />
