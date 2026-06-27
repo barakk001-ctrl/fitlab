@@ -1292,7 +1292,7 @@ function getRestSeconds(slot, goals) {
   if (slot === 'core') return 45;
   if (slot === 'leg-acc') return 60;
   if (compound) {
-    if (hasMuscle && !hasLoss) return 180;
+    if (hasMuscle && !hasLoss) return 60;
     if (hasMuscle && hasLoss) return 120;
     if (hasLoss) return 60;
     return 90;
@@ -3136,6 +3136,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [finished, setFinished] = useState(false);
   const [restLeft, setRestLeft] = useState(0);
+  const [restDuration, setRestDuration] = useState(60); // chosen rest length, default 60s
 
   const resting = restLeft > 0;
   const step = steps[stepIdx] || null;
@@ -3162,13 +3163,32 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
     }
   };
   const prev = () => { setRestLeft(0); setStepIdx((i) => Math.max(0, i - 1)); };
-  const startRest = () => { if (step?.ex?.restSeconds > 0) setRestLeft(step.ex.restSeconds); };
+  const startRest = () => setRestLeft(restDuration);
+  const setRest = (v) => { setRestDuration(v); if (resting) setRestLeft(v); };
   const restart = () => { setFinished(false); setStepIdx(0); setRestLeft(0); };
 
   const totalExercises = exercises.length;
   const progressPct = steps.length ? Math.round((stepIdx / steps.length) * 100) : 0;
-  const restTotal = step?.ex?.restSeconds || 1;
+  const restTotal = restDuration || 1;
   const numericTarget = step && /^[\d]+([–-][\d]+)?$/.test(step.target);
+
+  // Rest-duration picker — adjustable mid-session
+  const restChips = () => (
+    <div className="flex items-center justify-center gap-2 flex-wrap mt-6">
+      <span className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ opacity: 0.5 }} dir="ltr">{t('ws_rest', lang)}</span>
+      {[30, 45, 60, 90, 120, 180].map((v) => {
+        const active = restDuration === v;
+        return (
+          <button key={v} onClick={() => setRest(v)}
+            className="f-mono text-[10px] tracking-wider px-3 py-1.5"
+            style={{ background: active ? PALETTE.sage : 'transparent', color: active ? PALETTE.ink : PALETTE.cream, border: `1px solid ${active ? PALETTE.sage : 'rgba(242,235,221,0.4)'}`, borderRadius: '999px' }}
+            dir="ltr">
+            {v}s
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col no-print"
@@ -3242,6 +3262,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
                 {t('guided_next_up', lang)}: {step.ex.name}
               </div>
             )}
+            {restChips()}
           </div>
         ) : step ? (
           <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
@@ -3269,6 +3290,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
                 <StretchVideo key={step.ex.id} video={step.ex.video} title={step.ex.name} autoplay />
               </div>
             )}
+
+            {restChips()}
           </div>
         ) : null}
       </div>
@@ -3288,13 +3311,11 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
                 style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', opacity: stepIdx === 0 ? 0.35 : 1, cursor: stepIdx === 0 ? 'not-allowed' : 'pointer' }}>
                 <ArrowLeft size={13} strokeWidth={2} /> {t('ws_back', lang)}
               </button>
-              {step?.ex?.restSeconds > 0 && (
-                <button onClick={startRest}
-                  className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
-                  style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
-                  <Timer size={13} strokeWidth={2} /> {t('ws_rest', lang)} {step.ex.restSeconds}s
-                </button>
-              )}
+              <button onClick={startRest}
+                className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+                style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
+                <Timer size={13} strokeWidth={2} /> {t('ws_rest', lang)} {restDuration}s
+              </button>
               <button onClick={next}
                 className="f-mono uppercase tracking-[0.2em] px-7 py-3.5 text-xs flex items-center gap-2"
                 style={{ background: PALETTE.sage, color: PALETTE.ink, border: `1px solid ${PALETTE.sage}`, borderRadius: '999px', minWidth: 150, justifyContent: 'center' }}>
