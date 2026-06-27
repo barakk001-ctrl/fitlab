@@ -1,0 +1,16 @@
+{
+  "name": "FitLab — Editorial Fitness",
+  "short_name": "FitLab",
+  "description": "Editorial fitness & diet planner. Train for the decade you're actually in.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2EBDD",
+  "theme_color": "#F2EBDD",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

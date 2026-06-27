@@ -61,3 +61,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <FitLab />
   </React.StrictMode>
 );
+
+// Register the service worker (production only) so the app installs and works offline.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

@@ -212,6 +212,30 @@ const STRINGS = {
     ch_complete_sub: '30 days done. That’s a real habit — keep the momentum going.',
     ch_finished_badge: 'Finished',
     ch_safety: 'Bodyweight only · scale every move to your level · form over reps.',
+
+    // Set logging
+    log_result: 'Log result',
+    logged: 'Logged ✓',
+    unit_reps: 'reps',
+    unit_sec: 'sec',
+    unit_min: 'min',
+
+    // Progress dashboard
+    mode_progress: 'Progress',
+    prog_title: 'Your progress',
+    prog_sub: 'Streaks, sessions, bodyweight and personal records — all in one place.',
+    prog_streak: 'Day streak',
+    prog_sessions: 'Sessions',
+    prog_week: 'This week',
+    prog_challenge: 'Challenge',
+    prog_activity: 'Activity · last 12 weeks',
+    prog_records: 'Personal records',
+    prog_records_sub: 'Your best logged result per move.',
+    prog_no_records: 'Log results during a guided session and your records show up here.',
+    prog_no_activity: 'Finish a session to start your streak.',
+    prog_empty_title: 'Nothing logged yet',
+    prog_empty_sub: 'Do a guided workout, stretch session, or challenge day — your progress will build here.',
+    prog_best: 'best',
     mode_question: 'What are you building today?',
 
     // Stretch picker
@@ -461,6 +485,30 @@ const STRINGS = {
     ch_complete_sub: '30 ימים הושלמו. זה הרגל אמיתי — שמרו על המומנטום.',
     ch_finished_badge: 'הושלם',
     ch_safety: 'משקל גוף בלבד · התאימו כל תרגיל לרמתכם · טכניקה לפני כמות.',
+
+    // Set logging
+    log_result: 'תיעוד תוצאה',
+    logged: 'נשמר ✓',
+    unit_reps: 'חזרות',
+    unit_sec: 'שנ׳',
+    unit_min: 'דק׳',
+
+    // Progress dashboard
+    mode_progress: 'התקדמות',
+    prog_title: 'ההתקדמות שלך',
+    prog_sub: 'רצפים, אימונים, משקל גוף ושיאים אישיים — הכל במקום אחד.',
+    prog_streak: 'רצף ימים',
+    prog_sessions: 'אימונים',
+    prog_week: 'השבוע',
+    prog_challenge: 'אתגר',
+    prog_activity: 'פעילות · 12 שבועות אחרונים',
+    prog_records: 'שיאים אישיים',
+    prog_records_sub: 'התוצאה הטובה ביותר שתועדה לכל תרגיל.',
+    prog_no_records: 'תעדו תוצאות במהלך אימון מודרך והשיאים יופיעו כאן.',
+    prog_no_activity: 'סיימו אימון כדי להתחיל רצף.',
+    prog_empty_title: 'עדיין לא תועד דבר',
+    prog_empty_sub: 'בצעו אימון מודרך, מפגש מתיחות או יום אתגר — ההתקדמות תיבנה כאן.',
+    prog_best: 'שיא',
     mode_question: 'מה בונים היום?',
 
     // Stretch picker
@@ -681,6 +729,58 @@ function challengeDayNumber(startISO) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.floor((today - start) / 86400000) + 1;
+}
+
+// Activity log — one entry per (date, kind) marking a completed session. [{date, kind}]
+const ACTIVITY_KEY = 'fitlab:activity';
+async function loadActivityLog() {
+  try {
+    if (!window.storage) return [];
+    const result = await window.storage.get(ACTIVITY_KEY);
+    if (!result?.value) return [];
+    const parsed = JSON.parse(result.value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+async function persistActivityLog(entries) {
+  try {
+    if (!window.storage) return false;
+    await window.storage.set(ACTIVITY_KEY, JSON.stringify(entries));
+    return true;
+  } catch (e) { console.error('Activity save failed:', e); return false; }
+}
+
+// Performance log — quick-logged results for PRs. [{date, name, value, unit}]
+const PERF_KEY = 'fitlab:perflog';
+async function loadPerfLog() {
+  try {
+    if (!window.storage) return [];
+    const result = await window.storage.get(PERF_KEY);
+    if (!result?.value) return [];
+    const parsed = JSON.parse(result.value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+async function persistPerfLog(entries) {
+  try {
+    if (!window.storage) return false;
+    await window.storage.set(PERF_KEY, JSON.stringify(entries));
+    return true;
+  } catch (e) { console.error('Perf save failed:', e); return false; }
+}
+
+// Streak: consecutive days (ending today or yesterday) with any activity.
+function computeStreak(dates) {
+  const set = new Set(dates);
+  const dayMs = 86400000;
+  const now = new Date();
+  let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // If nothing today, allow the streak to still be "current" through yesterday.
+  if (!set.has(iso(cursor))) cursor = new Date(cursor - dayMs);
+  let streak = 0;
+  while (set.has(iso(cursor))) { streak++; cursor = new Date(cursor - dayMs); }
+  return streak;
 }
 
 const todayISO = () => {
@@ -1992,6 +2092,7 @@ function MastHead({ subtitle, lang, setLang, mode, setMode }) {
               { id: 'workout', key: 'mode_workout', icon: Dumbbell },
               { id: 'stretch', key: 'mode_stretch', icon: StretchHorizontal },
               { id: 'challenge', key: 'mode_challenge', icon: Flame },
+              { id: 'progress', key: 'mode_progress', icon: TrendingUp },
             ].map((m) => {
               const MIcon = m.icon;
               const active = mode === m.id;
@@ -3056,7 +3157,7 @@ function buildPhases(items, lang) {
   return phases;
 }
 
-function GuidedPlayer({ items, lang, onClose }) {
+function GuidedPlayer({ items, lang, onClose, onComplete }) {
   const phases = useMemo(() => buildPhases(items, lang), [items, lang]);
 
   // A phase is the first of its stretch when the item id differs from the previous phase.
@@ -3068,6 +3169,8 @@ function GuidedPlayer({ items, lang, onClose }) {
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [finished, setFinished] = useState(false);
+
+  useEffect(() => { if (finished) onComplete?.(); }, [finished]);
 
   const currentPhase = phases[phaseIdx] || null;
   // Waiting on the user to begin this stretch (first side not yet started).
@@ -3284,13 +3387,52 @@ function buildWorkoutSteps(exercises) {
   return steps;
 }
 
-function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
+// Unit a quick-logged result is measured in, inferred from the prescription text.
+function logUnitForScheme(scheme) {
+  if (/sec|שנ/.test(scheme || '')) return 'sec';
+  if (/min|דק/.test(scheme || '')) return 'min';
+  return 'reps';
+}
+
+// Compact inline "log your result" control shown on each exercise in the guided workout.
+function QuickLog({ name, unit, lang, onLog }) {
+  const [value, setValue] = useState('');
+  const [saved, setSaved] = useState(false);
+  const submit = () => {
+    const v = parseFloat(value);
+    if (isNaN(v) || v <= 0) return;
+    onLog(name, v, unit);
+    setSaved(true); setValue('');
+    setTimeout(() => setSaved(false), 1600);
+  };
+  const unitLabel = t(unit === 'sec' ? 'unit_sec' : unit === 'min' ? 'unit_min' : 'unit_reps', lang);
+  return (
+    <div className="flex items-center justify-center gap-2 flex-wrap mt-6" dir="ltr">
+      <span className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ opacity: 0.5 }}>{t('log_result', lang)}</span>
+      <input type="number" inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        placeholder="0"
+        className="f-mono text-sm text-center"
+        style={{ width: 64, background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', padding: '6px 10px' }} />
+      <span className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{unitLabel}</span>
+      <button onClick={submit}
+        className="f-mono text-[10px] uppercase tracking-[0.2em] px-3 py-1.5 flex items-center gap-1.5"
+        style={{ background: saved ? PALETTE.sage : 'transparent', color: saved ? PALETTE.ink : PALETTE.cream, border: `1px solid ${saved ? PALETTE.sage : 'rgba(242,235,221,0.4)'}`, borderRadius: '999px' }}>
+        <Check size={11} strokeWidth={2.5} /> {saved ? t('logged', lang) : (lang === 'he' ? 'שמור' : 'Save')}
+      </button>
+    </div>
+  );
+}
+
+function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog }) {
   const steps = useMemo(() => buildWorkoutSteps(exercises), [exercises]);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [finished, setFinished] = useState(false);
   const [restLeft, setRestLeft] = useState(0);
   const [restDuration, setRestDuration] = useState(60); // chosen rest length, default 60s
+
+  useEffect(() => { if (finished) onComplete?.(); }, [finished]);
 
   const resting = restLeft > 0;
   const step = steps[stepIdx] || null;
@@ -3443,6 +3585,10 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
               <div className="mt-7 mx-auto" style={{ width: '100%', maxWidth: 480 }}>
                 <StretchVideo key={step.ex.id} video={step.ex.video} title={step.ex.name} autoplay />
               </div>
+            )}
+
+            {onLog && (
+              <QuickLog key={step.ex.id} name={step.ex.name} unit={logUnitForScheme(step.target)} lang={lang} onLog={onLog} />
             )}
 
             {restChips()}
@@ -3679,6 +3825,154 @@ function ChallengeView({ lang, setLang, mode, setMode, challenge, onStart, onTog
           {t('ch_safety', lang)}
         </p>
       </section>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Progress dashboard
+// ------------------------------------------------------------
+
+function StatCard({ icon: Icon, value, label, accent }) {
+  return (
+    <div className="p-5" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px' }}>
+      <Icon size={18} strokeWidth={1.8} color={accent} />
+      <div className="f-display font-bold mt-3" style={{ fontSize: 'clamp(28px,4vw,40px)', lineHeight: 1, color: PALETTE.ink }} dir="ltr">{value}</div>
+      <div className="f-mono text-[10px] uppercase tracking-[0.2em] mt-2" style={{ opacity: 0.6 }}>{label}</div>
+    </div>
+  );
+}
+
+function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog, bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry, challenge }) {
+  const dayMs = 86400000;
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const activityDates = useMemo(() => new Set(activityLog.map((a) => a.date)), [activityLog]);
+  const streak = useMemo(() => computeStreak([...activityDates]), [activityDates]);
+  const totalSessions = activityLog.length;
+  const weekAgo = iso(new Date(today - 6 * dayMs));
+  const thisWeek = activityLog.filter((a) => a.date >= weekAgo).length;
+
+  const challengeDone = challenge?.start ? (challenge.done || []).filter((d) => d >= 1 && d <= 30).length : null;
+
+  // Personal records: best value per (name) — keep the unit of the best entry.
+  const records = useMemo(() => {
+    const byName = {};
+    perfLog.forEach((p) => {
+      const cur = byName[p.name];
+      if (!cur || p.value > cur.value) byName[p.name] = { value: p.value, unit: p.unit, date: p.date };
+    });
+    return Object.entries(byName).map(([name, r]) => ({ name, ...r })).sort((a, b) => b.date.localeCompare(a.date));
+  }, [perfLog]);
+
+  // Activity heatmap — last ~12 weeks aligned to weeks.
+  const weeks = useMemo(() => {
+    const start = new Date(today - 83 * dayMs);
+    start.setDate(start.getDate() - start.getDay()); // back to Sunday
+    const out = [];
+    let cur = new Date(start);
+    while (cur <= today) {
+      const wk = [];
+      for (let i = 0; i < 7; i++) { wk.push(new Date(cur)); cur = new Date(cur.getTime() + dayMs); }
+      out.push(wk);
+    }
+    return out;
+  }, [activityLog]);
+
+  const unitLabel = (u) => t(u === 'sec' ? 'unit_sec' : u === 'min' ? 'unit_min' : 'unit_reps', lang);
+  const hasAny = activityLog.length > 0 || perfLog.length > 0 || bodyweightLog.length > 0;
+
+  return (
+    <div className="rise">
+      <MastHead subtitle={t('prog_title', lang)} lang={lang} setLang={setLang} mode={mode} setMode={setMode} />
+
+      <section className="px-6 md:px-12 pt-10 pb-6">
+        <Pill color={PALETTE.rust}><TrendingUp size={11} strokeWidth={2.4} /> {t('mode_progress', lang)}</Pill>
+        <h1 className="f-display font-bold mt-4" style={{ color: PALETTE.ink, fontSize: 'clamp(38px,6vw,76px)', letterSpacing: '-0.03em', lineHeight: 1 }}>
+          {t('prog_title', lang)}
+        </h1>
+        <p className="f-body mt-4 max-w-xl text-sm md:text-base" style={{ opacity: 0.78 }}>{t('prog_sub', lang)}</p>
+      </section>
+
+      {!hasAny ? (
+        <section className="px-6 md:px-12 pb-16">
+          <div className="p-8 text-center" style={{ background: PALETTE.paper, border: `1px dashed ${PALETTE.ink}`, borderRadius: '6px' }}>
+            <div className="f-display font-bold" style={{ fontSize: '22px', color: PALETTE.ink }}>{t('prog_empty_title', lang)}</div>
+            <p className="f-body text-sm mt-2" style={{ opacity: 0.7 }}>{t('prog_empty_sub', lang)}</p>
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="px-6 md:px-12 pb-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <StatCard icon={Flame} accent={PALETTE.rust} value={streak} label={t('prog_streak', lang)} />
+              <StatCard icon={Activity} accent={PALETTE.rust} value={totalSessions} label={t('prog_sessions', lang)} />
+              <StatCard icon={TrendingUp} accent={PALETTE.rust} value={thisWeek} label={t('prog_week', lang)} />
+              <StatCard icon={CheckCircle2} accent={PALETTE.forest} value={challengeDone === null ? '—' : `${challengeDone}/30`} label={t('prog_challenge', lang)} />
+            </div>
+          </section>
+
+          {/* Activity heatmap */}
+          <section className="px-6 md:px-12 pt-8 pb-2">
+            <div className="f-mono text-[10px] uppercase tracking-[0.25em] mb-3" style={{ color: PALETTE.rust }}>{t('prog_activity', lang)}</div>
+            <div className="flex gap-1 overflow-x-auto pb-2" dir="ltr">
+              {weeks.map((wk, wi) => (
+                <div key={wi} className="flex flex-col gap-1">
+                  {wk.map((d, di) => {
+                    const future = d > today;
+                    const active = activityDates.has(iso(d));
+                    return (
+                      <div key={di} title={iso(d)}
+                        style={{
+                          width: 13, height: 13, borderRadius: 3,
+                          background: future ? 'transparent' : (active ? PALETTE.sage : 'rgba(27,27,25,0.08)'),
+                          border: future ? 'none' : `1px solid ${active ? PALETTE.sage : 'rgba(27,27,25,0.12)'}`,
+                        }} />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Bodyweight trend (reuses the existing section) */}
+          <BodyweightSection
+            entries={bodyweightLog}
+            currentWeightKg={currentWeightKg}
+            targetKg={targetKg}
+            units={units}
+            lang={lang}
+            onOpenLog={onOpenWeightLog}
+            onDelete={onDeleteWeightEntry}
+          />
+
+          {/* Personal records */}
+          <section className="px-6 md:px-12 pb-16">
+            <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+              <h2 className="f-display font-bold text-2xl md:text-3xl" style={{ color: PALETTE.ink }}>{t('prog_records', lang)}</h2>
+            </div>
+            <p className="f-body text-sm mb-5" style={{ opacity: 0.7 }}>{t('prog_records_sub', lang)}</p>
+            {records.length === 0 ? (
+              <div className="p-6 f-italic text-center" style={{ background: PALETTE.paper, border: `1px dashed ${PALETTE.ink}`, borderRadius: '6px', opacity: 0.7 }}>
+                {t('prog_no_records', lang)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {records.map((r) => (
+                  <div key={r.name} className="flex items-baseline justify-between gap-3 p-4" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px' }}>
+                    <span className="f-display font-semibold" style={{ color: PALETTE.ink }} dir="ltr">{r.name}</span>
+                    <span className="f-mono text-sm whitespace-nowrap" style={{ color: PALETTE.rust }} dir="ltr">
+                      {r.value} {unitLabel(r.unit)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
@@ -4870,6 +5164,10 @@ export default function FitLab() {
   // 30-day challenge: { start, done } or null
   const [challenge, setChallenge] = useState(null);
 
+  // Progress tracking
+  const [activityLog, setActivityLog] = useState([]);   // [{date, kind}]
+  const [perfLog, setPerfLog] = useState([]);           // [{date, name, value, unit}]
+
   // Saved plans (both workout + stretch live here, distinguished by .type)
   const [savedPlans, setSavedPlans] = useState([]);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -4889,6 +5187,8 @@ export default function FitLab() {
     loadAllPlans().then(plans => { if (!cancelled) setSavedPlans(plans); });
     loadBodyweightLog().then(entries => { if (!cancelled) setBodyweightLog(entries); });
     loadChallenge().then(c => { if (!cancelled) setChallenge(c); });
+    loadActivityLog().then(a => { if (!cancelled) setActivityLog(a); });
+    loadPerfLog().then(p => { if (!cancelled) setPerfLog(p); });
     return () => { cancelled = true; };
   }, []);
 
@@ -5132,14 +5432,14 @@ export default function FitLab() {
     persistChallenge(data);
   };
   const handleToggleChallengeDay = (day) => {
-    setChallenge((prev) => {
-      const base = prev || { start: todayISO(), done: [] };
-      const set = new Set(base.done || []);
-      set.has(day) ? set.delete(day) : set.add(day);
-      const next = { ...base, done: [...set].sort((a, b) => a - b) };
-      persistChallenge(next);
-      return next;
-    });
+    const base = challenge || { start: todayISO(), done: [] };
+    const marking = !(base.done || []).includes(day);
+    const set = new Set(base.done || []);
+    marking ? set.add(day) : set.delete(day);
+    const next = { ...base, done: [...set].sort((a, b) => a - b) };
+    setChallenge(next);
+    persistChallenge(next);
+    if (marking) recordActivity('challenge'); // completing a day counts toward the streak
   };
   const handleRestartChallenge = () => {
     if (!window.confirm(t('ch_restart_confirm', lang))) return;
@@ -5152,6 +5452,25 @@ export default function FitLab() {
       exercises: challengeSessionExercises(dayData.exercises),
       label: t('mode_challenge', lang),
       dayName: `Day ${dayData.day} · ${dayData.title}`,
+      kind: 'challenge',
+    });
+  };
+
+  // ---- Progress tracking ----
+  const recordActivity = (kind) => {
+    const date = todayISO();
+    setActivityLog((prev) => {
+      if (prev.some((a) => a.date === date && a.kind === kind)) return prev; // one per (date, kind)
+      const next = [...prev, { date, kind }];
+      persistActivityLog(next);
+      return next;
+    });
+  };
+  const recordPerf = (name, value, unit) => {
+    setPerfLog((prev) => {
+      const next = [...prev, { date: todayISO(), name, value, unit }];
+      persistPerfLog(next);
+      return next;
     });
   };
 
@@ -5216,7 +5535,21 @@ export default function FitLab() {
     >
       <FontStyles />
 
-      {mode === 'challenge' ? (
+      {mode === 'progress' ? (
+        <ProgressDashboard
+          lang={lang} setLang={setLang}
+          mode={mode} setMode={handleSetMode}
+          activityLog={activityLog}
+          perfLog={perfLog}
+          bodyweightLog={bodyweightLog}
+          currentWeightKg={computed?.weightKg}
+          targetKg={computed?.targetKg}
+          units={units}
+          onOpenWeightLog={() => setLogModalOpen(true)}
+          onDeleteWeightEntry={handleDeleteWeightEntry}
+          challenge={challenge}
+        />
+      ) : mode === 'challenge' ? (
         <ChallengeView
           lang={lang} setLang={setLang}
           mode={mode} setMode={handleSetMode}
@@ -5291,7 +5624,7 @@ export default function FitLab() {
           onOpenWeightLog={() => setLogModalOpen(true)}
           onDeleteWeightEntry={handleDeleteWeightEntry}
           onStartTimer={(ex) => setActiveTimer(ex)}
-          onStartWorkout={(exercises, label, dayName) => setWorkoutSession({ exercises, label, dayName })}
+          onStartWorkout={(exercises, label, dayName) => setWorkoutSession({ exercises, label, dayName, kind: 'workout' })}
         />
       )}
 
@@ -5317,6 +5650,7 @@ export default function FitLab() {
           items={stretchItems}
           lang={lang}
           onClose={() => setGuidedOpen(false)}
+          onComplete={() => recordActivity('stretch')}
         />
       )}
 
@@ -5327,6 +5661,8 @@ export default function FitLab() {
           dayName={workoutSession.dayName}
           lang={lang}
           onClose={() => setWorkoutSession(null)}
+          onComplete={() => recordActivity(workoutSession.kind || 'workout')}
+          onLog={recordPerf}
         />
       )}
 
