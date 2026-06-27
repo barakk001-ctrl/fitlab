@@ -185,6 +185,33 @@ const STRINGS = {
     // Mode toggle
     mode_workout: 'Workout Plan',
     mode_stretch: 'Stretch Plan',
+    mode_challenge: 'Challenge',
+
+    // 30-day challenge
+    ch_badge: '30 days',
+    ch_title: '30-Day Calisthenics Challenge',
+    ch_hero_sub: 'One month. Bodyweight only. A new session unlocks each day — show up and follow along.',
+    ch_how_title: 'How it works',
+    ch_how_1: 'Start the challenge and Day 1 unlocks today. Each calendar day reveals that day’s session — you can’t skip ahead.',
+    ch_how_2: '21 workout days + 9 recovery days over 4 weeks: Foundations → Volume → Intensity → Peak, then a final test on Day 30.',
+    ch_how_3: 'Every exercise scales — do an easier version if a move is too hard. Form over reps. Stop if anything hurts.',
+    ch_start: 'Start the challenge',
+    ch_restart: 'Restart challenge',
+    ch_restart_confirm: 'Restart the challenge from Day 1? Your progress will be cleared.',
+    ch_day_of: 'Day {i} of {n}',
+    ch_progress: '{done} of {total} days complete',
+    ch_today: 'Today',
+    ch_rest_day: 'Recovery',
+    ch_workout_day: 'Workout',
+    ch_mark_done: 'Mark complete',
+    ch_done: 'Completed',
+    ch_undo: 'Completed · undo',
+    ch_locked: 'Unlocks on day {i}',
+    ch_back_today: 'Back to today',
+    ch_complete_title: 'Challenge complete!',
+    ch_complete_sub: '30 days done. That’s a real habit — keep the momentum going.',
+    ch_finished_badge: 'Finished',
+    ch_safety: 'Bodyweight only · scale every move to your level · form over reps.',
     mode_question: 'What are you building today?',
 
     // Stretch picker
@@ -407,6 +434,33 @@ const STRINGS = {
     // Mode toggle
     mode_workout: 'תוכנית אימון',
     mode_stretch: 'תוכנית מתיחות',
+    mode_challenge: 'אתגר',
+
+    // 30-day challenge
+    ch_badge: '30 ימים',
+    ch_title: 'אתגר קליסטניקס 30 יום',
+    ch_hero_sub: 'חודש אחד. משקל גוף בלבד. כל יום נפתח אימון חדש — פשוט להופיע ולעקוב.',
+    ch_how_title: 'איך זה עובד',
+    ch_how_1: 'מתחילים את האתגר ויום 1 נפתח היום. כל יום בלוח השנה חושף את האימון של אותו יום — אי אפשר לדלג קדימה.',
+    ch_how_2: '21 ימי אימון + 9 ימי התאוששות לאורך 4 שבועות: יסודות → נפח → עצימות → שיא, ומבחן מסכם ביום 30.',
+    ch_how_3: 'כל תרגיל ניתן להתאמה — בצעו גרסה קלה יותר אם תרגיל קשה מדי. טכניקה לפני כמות. עצרו אם משהו כואב.',
+    ch_start: 'התחל את האתגר',
+    ch_restart: 'התחל אתגר מחדש',
+    ch_restart_confirm: 'להתחיל את האתגר מחדש מיום 1? ההתקדמות שלכם תימחק.',
+    ch_day_of: 'יום {i} מתוך {n}',
+    ch_progress: '{done} מתוך {total} ימים הושלמו',
+    ch_today: 'היום',
+    ch_rest_day: 'התאוששות',
+    ch_workout_day: 'אימון',
+    ch_mark_done: 'סמן כהושלם',
+    ch_done: 'הושלם',
+    ch_undo: 'הושלם · בטל',
+    ch_locked: 'נפתח ביום {i}',
+    ch_back_today: 'חזרה להיום',
+    ch_complete_title: 'האתגר הושלם!',
+    ch_complete_sub: '30 ימים הושלמו. זה הרגל אמיתי — שמרו על המומנטום.',
+    ch_finished_badge: 'הושלם',
+    ch_safety: 'משקל גוף בלבד · התאימו כל תרגיל לרמתכם · טכניקה לפני כמות.',
     mode_question: 'מה בונים היום?',
 
     // Stretch picker
@@ -595,6 +649,38 @@ async function persistBodyweightLog(entries) {
     console.error('Bodyweight save failed:', e);
     return false;
   }
+}
+
+// 30-day challenge progress: { start: 'YYYY-MM-DD', done: number[] }
+const CHALLENGE_KEY = 'fitlab:challenge';
+
+async function loadChallenge() {
+  try {
+    if (!window.storage) return null;
+    const result = await window.storage.get(CHALLENGE_KEY);
+    if (!result?.value) return null;
+    const parsed = JSON.parse(result.value);
+    return parsed && parsed.start ? { start: parsed.start, done: Array.isArray(parsed.done) ? parsed.done : [] } : null;
+  } catch { return null; }
+}
+
+async function persistChallenge(data) {
+  try {
+    if (!window.storage) return false;
+    await window.storage.set(CHALLENGE_KEY, JSON.stringify(data));
+    return true;
+  } catch (e) {
+    console.error('Challenge save failed:', e);
+    return false;
+  }
+}
+
+// Day number since the challenge started (1-based, by calendar day; can exceed 30 when finished)
+function challengeDayNumber(startISO) {
+  const start = new Date(startISO + 'T00:00:00');
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((today - start) / 86400000) + 1;
 }
 
 const todayISO = () => {
@@ -820,6 +906,66 @@ const EX_VIDEOS = {
   'sun-salutation': 'UPszTB6UzaA', 'cat-cow': '2tFpdTfIbKw', '90-90': 'wnFTIPhNySI',
   'foam-roll': 'qTiqOyqQGs8', 'shoulder-disl': '7p-Ma0eksaY', 'banded-stretch': 'aCcdDB_Y13g',
 };
+
+// ------------------------------------------------------------
+// 30-Day Calisthenics Challenge
+// Bodyweight only. 21 workout days + 9 recovery days across 4 weeks
+// (Foundations → Volume → Intensity → Peak → Day-30 test). Structure and
+// progression follow common bodyweight-challenge guidance (r/bodyweightfitness
+// Recommended Routine, Odin Fitness 30-day roadmap, Darebee 30-day programs):
+// ~5 sessions/week, spaced recovery, week-over-week progressive overload.
+// ------------------------------------------------------------
+
+// Map a challenge exercise name to a demo video (reuses the EX library by name).
+const EX_NAME_VIDEO = Object.fromEntries(
+  Object.entries(EX).map(([id, ex]) => [ex.name, EX_VIDEOS[id] || null])
+);
+const CHALLENGE_VIDEO_OVERRIDE = { 'Pistol Squat (advanced)': EX_VIDEOS['pistol-squat'] };
+const challengeVideo = (name) => CHALLENGE_VIDEO_OVERRIDE[name] || EX_NAME_VIDEO[name] || null;
+
+// Convert a challenge day's exercises into the shape GuidedWorkout expects.
+function challengeSessionExercises(dayExercises) {
+  return (dayExercises || []).map((e, i) => ({
+    id: `ch-${i}-${e.name}`,
+    name: e.name,
+    prescription: e.scheme,
+    video: challengeVideo(e.name),
+    restSeconds: 60,
+  }));
+}
+
+const CHALLENGE_DAYS = [
+  { day: 1, type: 'workout', title: 'Full Body', focus: 'Learn the movement patterns with light volume', exercises: [ { name: 'Bodyweight Squat', scheme: '3 × 10' }, { name: 'Incline Push-Up', scheme: '3 × 8' }, { name: 'Glute Bridge', scheme: '3 × 12' }, { name: 'Plank', scheme: '3 × 20 sec' }, { name: 'Bird-Dog', scheme: '3 × 8 / side' } ] },
+  { day: 2, type: 'workout', title: 'Push & Core', focus: 'Pressing strength and anti-rotation core', exercises: [ { name: 'Incline Push-Up', scheme: '3 × 8' }, { name: 'Pike Push-Up', scheme: '3 × 6' }, { name: 'Plank Shoulder Taps', scheme: '3 × 10 / side' }, { name: 'Dead Bug', scheme: '3 × 8 / side' }, { name: 'Side Plank', scheme: '2 × 15 sec / side' } ] },
+  { day: 3, type: 'workout', title: 'Legs & Glutes', focus: 'Lower-body volume and control', exercises: [ { name: 'Bodyweight Squat', scheme: '3 × 12' }, { name: 'Reverse Lunges', scheme: '3 × 8 / leg' }, { name: 'Glute Bridge', scheme: '3 × 15' }, { name: 'Wall Sit', scheme: '3 × 20 sec' }, { name: 'Calf Raise', scheme: '3 × 15' } ] },
+  { day: 4, type: 'rest', title: 'Active Recovery', focus: 'Light mobility and easy cardio', exercises: [ { name: 'Cat-Cow + Thoracic Mobility', scheme: '2 × 8 slow reps' }, { name: 'Walking', scheme: '20 min easy walk' } ] },
+  { day: 5, type: 'workout', title: 'Pull & Core', focus: 'Horizontal pull and posterior chain', exercises: [ { name: 'Inverted Row', scheme: '3 × 8' }, { name: 'Superman', scheme: '3 × 10' }, { name: 'Bird-Dog', scheme: '3 × 8 / side' }, { name: 'Plank', scheme: '3 × 25 sec' }, { name: 'Dead Bug', scheme: '3 × 8 / side' } ] },
+  { day: 6, type: 'workout', title: 'Conditioning', focus: 'Easy circuit to build work capacity', exercises: [ { name: 'Jumping Jacks', scheme: '3 × 30 sec' }, { name: 'High Knees', scheme: '3 × 20 sec' }, { name: 'Mountain Climbers', scheme: '3 × 20 sec' }, { name: 'Bodyweight Squat', scheme: '3 × 12' } ] },
+  { day: 7, type: 'rest', title: 'Full Rest', focus: 'Complete rest — let week 1 adaptations settle', exercises: [] },
+  { day: 8, type: 'workout', title: 'Full Body', focus: 'Progress to full push-ups, add volume', exercises: [ { name: 'Bodyweight Squat', scheme: '3 × 14' }, { name: 'Push-Up', scheme: '3 × 8' }, { name: 'Single-Leg Glute Bridge', scheme: '3 × 8 / side' }, { name: 'Plank', scheme: '3 × 30 sec' }, { name: 'Bird-Dog', scheme: '3 × 10 / side' } ] },
+  { day: 9, type: 'workout', title: 'Push & Core', focus: 'More pressing sets, longer side planks', exercises: [ { name: 'Push-Up', scheme: '4 × 8' }, { name: 'Pike Push-Up', scheme: '3 × 8' }, { name: 'Plank Shoulder Taps', scheme: '3 × 12 / side' }, { name: 'Side Plank', scheme: '3 × 20 sec / side' }, { name: 'Dead Bug', scheme: '3 × 10 / side' } ] },
+  { day: 10, type: 'workout', title: 'Legs & Glutes', focus: 'Add walking lunges, longer wall sit', exercises: [ { name: 'Bodyweight Squat', scheme: '3 × 15' }, { name: 'Walking Lunges', scheme: '3 × 10 / leg' }, { name: 'Glute Bridge', scheme: '3 × 18' }, { name: 'Wall Sit', scheme: '3 × 30 sec' }, { name: 'Calf Raise', scheme: '3 × 18' } ] },
+  { day: 11, type: 'rest', title: 'Active Recovery', focus: 'Mobility flow and easy walk', exercises: [ { name: 'Cat-Cow + Thoracic Mobility', scheme: '2 × 10 slow reps' }, { name: 'Bird-Dog', scheme: '2 × 10 / side' }, { name: 'Walking', scheme: '25 min easy walk' } ] },
+  { day: 12, type: 'workout', title: 'Pull & Core', focus: 'Pull volume and longer planks', exercises: [ { name: 'Inverted Row', scheme: '4 × 8' }, { name: 'Superman', scheme: '3 × 12' }, { name: 'Plank', scheme: '3 × 35 sec' }, { name: 'Side Plank', scheme: '3 × 20 sec / side' }, { name: 'Dead Bug', scheme: '3 × 10 / side' } ] },
+  { day: 13, type: 'workout', title: 'Conditioning', focus: 'Introduce jump squats and burpees', exercises: [ { name: 'Jumping Jacks', scheme: '3 × 40 sec' }, { name: 'High Knees', scheme: '3 × 30 sec' }, { name: 'Mountain Climbers', scheme: '3 × 25 sec' }, { name: 'Jump Squat', scheme: '3 × 8' }, { name: 'Burpees', scheme: '3 × 5' } ] },
+  { day: 14, type: 'rest', title: 'Full Rest', focus: 'Complete rest — end of volume week', exercises: [] },
+  { day: 15, type: 'workout', title: 'Full Body', focus: 'Higher intensity, 4 working sets', exercises: [ { name: 'Bodyweight Squat', scheme: '4 × 15' }, { name: 'Push-Up', scheme: '4 × 10' }, { name: 'Single-Leg Glute Bridge', scheme: '3 × 10 / side' }, { name: 'Plank', scheme: '3 × 40 sec' }, { name: 'Mountain Climbers', scheme: '3 × 30 sec' } ] },
+  { day: 16, type: 'workout', title: 'Push & Core', focus: 'Build vertical press strength', exercises: [ { name: 'Push-Up', scheme: '4 × 10' }, { name: 'Pike Push-Up', scheme: '4 × 8' }, { name: 'Plank Shoulder Taps', scheme: '3 × 15 / side' }, { name: 'Side Plank', scheme: '3 × 30 sec / side' }, { name: 'Dead Bug', scheme: '3 × 12 / side' } ] },
+  { day: 17, type: 'workout', title: 'Legs & Glutes', focus: 'Explosive lower body', exercises: [ { name: 'Jump Squat', scheme: '4 × 10' }, { name: 'Reverse Lunges', scheme: '3 × 12 / leg' }, { name: 'Single-Leg Glute Bridge', scheme: '3 × 12 / side' }, { name: 'Wall Sit', scheme: '3 × 40 sec' }, { name: 'Calf Raise', scheme: '3 × 20' } ] },
+  { day: 18, type: 'rest', title: 'Active Recovery', focus: 'Mobility and a longer easy walk', exercises: [ { name: 'Cat-Cow + Thoracic Mobility', scheme: '2 × 12 slow reps' }, { name: 'Walking', scheme: '30 min easy walk' } ] },
+  { day: 19, type: 'workout', title: 'Pull & Core', focus: 'Peak pulling effort', exercises: [ { name: 'Inverted Row', scheme: '4 × 10' }, { name: 'Pull-Up', scheme: '3 × max (or Inverted Row 3 × 8)' }, { name: 'Superman', scheme: '3 × 14' }, { name: 'Plank', scheme: '3 × 45 sec' }, { name: 'Side Plank', scheme: '3 × 30 sec / side' } ] },
+  { day: 20, type: 'workout', title: 'Conditioning', focus: 'Hard full-body circuit', exercises: [ { name: 'Burpees', scheme: '4 × 6' }, { name: 'High Knees', scheme: '4 × 30 sec' }, { name: 'Mountain Climbers', scheme: '4 × 30 sec' }, { name: 'Jump Squat', scheme: '3 × 12' }, { name: 'Jumping Jacks', scheme: '3 × 45 sec' } ] },
+  { day: 21, type: 'rest', title: 'Full Rest', focus: 'Complete rest — recover before peak week', exercises: [] },
+  { day: 22, type: 'workout', title: 'Full Body', focus: 'Peak week — top-end volume', exercises: [ { name: 'Bodyweight Squat', scheme: '4 × 18' }, { name: 'Push-Up', scheme: '4 × 12' }, { name: 'Walking Lunges', scheme: '3 × 12 / leg' }, { name: 'Plank', scheme: '3 × 50 sec' }, { name: 'Bird-Dog', scheme: '3 × 12 / side' } ] },
+  { day: 23, type: 'workout', title: 'Push & Core', focus: 'Max pressing volume', exercises: [ { name: 'Push-Up', scheme: '5 × 10' }, { name: 'Pike Push-Up', scheme: '4 × 10' }, { name: 'Plank Shoulder Taps', scheme: '3 × 18 / side' }, { name: 'Side Plank', scheme: '3 × 35 sec / side' }, { name: 'Dead Bug', scheme: '3 × 12 / side' } ] },
+  { day: 24, type: 'workout', title: 'Legs & Glutes', focus: 'Power plus a skill-strength reach', exercises: [ { name: 'Jump Squat', scheme: '4 × 12' }, { name: 'Reverse Lunges', scheme: '4 × 12 / leg' }, { name: 'Single-Leg Glute Bridge', scheme: '3 × 14 / side' }, { name: 'Wall Sit', scheme: '3 × 50 sec' }, { name: 'Pistol Squat (advanced)', scheme: '3 × 3 / side (hold support)' } ] },
+  { day: 25, type: 'rest', title: 'Active Recovery', focus: 'Full mobility reset', exercises: [ { name: 'Cat-Cow + Thoracic Mobility', scheme: '2 × 12 slow reps' }, { name: 'Bird-Dog', scheme: '2 × 10 / side' }, { name: 'Walking', scheme: '30 min easy walk' } ] },
+  { day: 26, type: 'workout', title: 'Pull & Core', focus: 'Peak pulling and longest planks', exercises: [ { name: 'Inverted Row', scheme: '4 × 12' }, { name: 'Pull-Up', scheme: '3 × max (or Inverted Row 4 × 10)' }, { name: 'Superman', scheme: '3 × 15' }, { name: 'Plank', scheme: '3 × 60 sec' }, { name: 'Side Plank', scheme: '3 × 35 sec / side' } ] },
+  { day: 27, type: 'workout', title: 'Conditioning', focus: 'Final hard circuit', exercises: [ { name: 'Burpees', scheme: '4 × 8' }, { name: 'Mountain Climbers', scheme: '4 × 40 sec' }, { name: 'High Knees', scheme: '4 × 40 sec' }, { name: 'Jump Squat', scheme: '4 × 12' }, { name: 'Jumping Jacks', scheme: '3 × 60 sec' } ] },
+  { day: 28, type: 'workout', title: 'Deload', focus: 'Easy session to freshen up before the test', exercises: [ { name: 'Bodyweight Squat', scheme: '2 × 12' }, { name: 'Incline Push-Up', scheme: '2 × 10' }, { name: 'Glute Bridge', scheme: '2 × 12' }, { name: 'Plank', scheme: '2 × 30 sec' }, { name: 'Cat-Cow + Thoracic Mobility', scheme: '2 × 10 slow reps' } ] },
+  { day: 29, type: 'rest', title: 'Full Rest', focus: 'Total rest — be fresh for the final test', exercises: [] },
+  { day: 30, type: 'workout', title: 'Final Test', focus: 'Re-test maxes and compare to Day 1', exercises: [ { name: 'Push-Up', scheme: '1 × max reps' }, { name: 'Bodyweight Squat', scheme: 'max reps in 60 sec' }, { name: 'Plank', scheme: '1 × max hold' }, { name: 'Inverted Row', scheme: '1 × max reps' } ] },
+];
 
 // ------------------------------------------------------------
 // Diet templates — each meal is { key, options: { en: [...], he: [...] } }
@@ -1838,6 +1984,7 @@ function MastHead({ subtitle, lang, setLang, mode, setMode }) {
             {[
               { id: 'workout', key: 'mode_workout', icon: Dumbbell },
               { id: 'stretch', key: 'mode_stretch', icon: StretchHorizontal },
+              { id: 'challenge', key: 'mode_challenge', icon: Flame },
             ].map((m) => {
               const MIcon = m.icon;
               const active = mode === m.id;
@@ -3330,6 +3477,205 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
   );
 }
 
+// ------------------------------------------------------------
+// 30-Day Calisthenics Challenge view
+// ------------------------------------------------------------
+
+function ChallengeView({ lang, setLang, mode, setMode, challenge, onStart, onToggleDay, onStartDay, onRestart }) {
+  const started = !!challenge?.start;
+  const rawDay = started ? challengeDayNumber(challenge.start) : 0;
+  const currentDay = Math.min(Math.max(rawDay, 1), 30);
+  const finishedAll = started && rawDay > 30;
+  const doneSet = useMemo(() => new Set(challenge?.done || []), [challenge]);
+  const doneCount = (challenge?.done || []).filter((d) => d >= 1 && d <= 30).length;
+
+  const [selectedDay, setSelectedDay] = useState(currentDay);
+  useEffect(() => { setSelectedDay(Math.min(Math.max(currentDay, 1), 30)); }, [challenge?.start]);
+
+  const ArrowBack = isRTL(lang) ? ArrowRight : ArrowLeft;
+  const unlocked = (d) => started && d <= currentDay;
+  const dayData = CHALLENGE_DAYS[selectedDay - 1];
+
+  if (!started) {
+    return (
+      <div className="rise">
+        <MastHead subtitle={t('ch_title', lang)} lang={lang} setLang={setLang} mode={mode} setMode={setMode} />
+        <section className="px-6 md:px-12 pt-12 pb-10 relative">
+          <Pill color={PALETTE.rust}><Flame size={11} strokeWidth={2.4} /> {t('ch_badge', lang)}</Pill>
+          <h1 className="f-display mt-6 leading-[0.92] font-bold"
+            style={{ color: PALETTE.ink, fontSize: 'clamp(40px, 7vw, 100px)' }}>
+            {t('ch_title', lang)}
+          </h1>
+          <p className="f-body mt-7 max-w-xl text-base md:text-lg leading-relaxed" style={{ color: PALETTE.ink, opacity: 0.78 }}>
+            {t('ch_hero_sub', lang)}
+          </p>
+
+          <div className="mt-10 max-w-2xl" style={{ borderTop: `1px solid ${PALETTE.ink}` }}>
+            <div className="f-mono text-[10px] uppercase tracking-[0.3em] mt-5 mb-4" style={{ color: PALETTE.rust }}>
+              {t('ch_how_title', lang)}
+            </div>
+            {['ch_how_1', 'ch_how_2', 'ch_how_3'].map((k, i) => (
+              <div key={k} className="flex items-start gap-3 mb-3">
+                <span className="f-mono text-xs mt-0.5" style={{ color: PALETTE.rust }} dir="ltr">{String(i + 1).padStart(2, '0')}</span>
+                <p className="f-body text-sm md:text-base leading-relaxed" style={{ opacity: 0.85 }}>{t(k, lang)}</p>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={onStart}
+            className="mt-9 f-mono uppercase tracking-[0.2em] px-8 py-4 text-xs flex items-center gap-2"
+            style={{ background: PALETTE.ink, color: PALETTE.cream, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+            <Flame size={14} strokeWidth={2} /> {t('ch_start', lang)}
+          </button>
+          <p className="f-mono text-[10px] uppercase tracking-[0.2em] mt-5" style={{ opacity: 0.55 }}>
+            {t('ch_safety', lang)}
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  const isRest = dayData.type === 'rest';
+  const selDone = doneSet.has(selectedDay);
+  const selUnlocked = unlocked(selectedDay);
+
+  return (
+    <div className="rise">
+      <MastHead subtitle={t('ch_title', lang)} lang={lang} setLang={setLang} mode={mode} setMode={setMode} />
+
+      <section className="px-6 md:px-12 pt-10 pb-6">
+        <div className="flex items-end justify-between flex-wrap gap-4">
+          <div>
+            <Pill color={PALETTE.rust}><Flame size={11} strokeWidth={2.4} /> {t('ch_title', lang)}</Pill>
+            <h1 className="f-display font-bold mt-4" style={{ color: PALETTE.ink, fontSize: 'clamp(38px, 6vw, 76px)', letterSpacing: '-0.03em', lineHeight: 1 }} dir="ltr">
+              {finishedAll ? t('ch_finished_badge', lang) : t('ch_day_of', lang, { i: currentDay, n: 30 })}
+            </h1>
+            <div className="f-mono text-[10px] uppercase tracking-[0.25em] mt-3" style={{ color: PALETTE.rust }}>
+              {t('ch_progress', lang, { done: doneCount, total: 30 })}
+            </div>
+          </div>
+          <button onClick={onRestart}
+            className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-4 py-2"
+            style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+            <RotateCcw size={12} strokeWidth={2} /> {t('ch_restart', lang)}
+          </button>
+        </div>
+
+        {finishedAll && (
+          <div className="mt-6 p-5 flex items-center gap-3" style={{ background: PALETTE.forest, color: PALETTE.cream, borderRadius: '6px' }}>
+            <CheckCircle2 size={22} strokeWidth={2} color={PALETTE.sage} />
+            <div>
+              <div className="f-display font-bold" style={{ fontSize: '20px' }}>{t('ch_complete_title', lang)}</div>
+              <div className="f-body text-sm" style={{ opacity: 0.85 }}>{t('ch_complete_sub', lang)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Day grid */}
+        <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 mt-7" dir="ltr">
+          {CHALLENGE_DAYS.map((d) => {
+            const isToday = d.day === currentDay && !finishedAll;
+            const isSelected = d.day === selectedDay;
+            const isDone = doneSet.has(d.day);
+            const isLocked = !unlocked(d.day);
+            return (
+              <button key={d.day} disabled={isLocked}
+                onClick={() => setSelectedDay(d.day)}
+                title={isLocked ? t('ch_locked', lang, { i: d.day }) : `Day ${d.day} · ${d.title}`}
+                className="f-mono text-xs flex items-center justify-center"
+                style={{
+                  aspectRatio: '1 / 1',
+                  background: isDone ? PALETTE.sage : (isToday ? PALETTE.rust : PALETTE.paper),
+                  color: isDone ? PALETTE.ink : (isToday ? PALETTE.cream : PALETTE.ink),
+                  border: `1px solid ${isSelected ? PALETTE.ink : 'rgba(27,27,25,0.2)'}`,
+                  outline: isSelected ? `2px solid ${PALETTE.ink}` : 'none',
+                  outlineOffset: '1px',
+                  borderRadius: '6px',
+                  opacity: isLocked ? 0.3 : 1,
+                  cursor: isLocked ? 'not-allowed' : 'pointer',
+                  position: 'relative',
+                }}>
+                {isDone ? <Check size={13} strokeWidth={3} /> : d.day}
+                {d.type === 'rest' && !isDone && (
+                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: isToday ? PALETTE.cream : PALETTE.rust, opacity: 0.7 }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Selected day detail */}
+      <section className="px-6 md:px-12 pb-16">
+        <div className="p-6 md:p-8" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px' }}>
+          <div className="flex items-baseline justify-between flex-wrap gap-3">
+            <div className="flex items-baseline gap-3">
+              <span className="f-display font-bold" style={{ fontSize: 'clamp(34px,5vw,56px)', color: PALETTE.rust, lineHeight: 1 }} dir="ltr">
+                {String(selectedDay).padStart(2, '0')}
+              </span>
+              <div>
+                <h3 className="f-display font-bold" style={{ fontSize: 'clamp(20px,2.4vw,26px)', lineHeight: 1 }} dir="ltr">{dayData.title}</h3>
+                <div className="f-italic text-sm mt-1" style={{ opacity: 0.7 }} dir="ltr">{dayData.focus}</div>
+              </div>
+            </div>
+            <Pill color={isRest ? PALETTE.forest : PALETTE.ink}>
+              {isRest ? t('ch_rest_day', lang) : t('ch_workout_day', lang)}
+            </Pill>
+          </div>
+
+          {dayData.exercises.length > 0 && (
+            <div className="mt-6" style={{ borderTop: `1px solid rgba(27,27,25,0.15)` }}>
+              {dayData.exercises.map((ex, i) => (
+                <div key={i} className="flex items-baseline justify-between gap-3 py-3 border-b last:border-b-0" style={{ borderColor: 'rgba(27,27,25,0.12)' }}>
+                  <span className="f-display font-semibold text-base md:text-lg" style={{ color: PALETTE.ink }} dir="ltr">{ex.name}</span>
+                  <span className="f-mono text-xs tracking-wider" style={{ opacity: 0.75 }} dir="ltr">{ex.scheme}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 mt-7 flex-wrap no-print">
+            {selUnlocked && dayData.exercises.length > 0 && (
+              <button onClick={() => onStartDay(dayData)}
+                className="f-mono uppercase tracking-[0.2em] px-7 py-3.5 text-xs flex items-center gap-2"
+                style={{ background: PALETTE.ink, color: PALETTE.cream, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+                <Play size={13} strokeWidth={2.5} /> {t('start_session', lang)}
+              </button>
+            )}
+            {selUnlocked && (
+              <button onClick={() => onToggleDay(selectedDay)}
+                className="f-mono uppercase tracking-[0.2em] px-6 py-3.5 text-xs flex items-center gap-2"
+                style={{
+                  background: selDone ? PALETTE.sage : 'transparent',
+                  color: selDone ? PALETTE.ink : PALETTE.ink,
+                  border: `1px solid ${selDone ? PALETTE.sage : PALETTE.ink}`, borderRadius: '999px',
+                }}>
+                <Check size={13} strokeWidth={2.5} /> {selDone ? t('ch_undo', lang) : t('ch_mark_done', lang)}
+              </button>
+            )}
+            {!selUnlocked && (
+              <div className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ opacity: 0.55 }}>
+                {t('ch_locked', lang, { i: selectedDay })}
+              </div>
+            )}
+            {selectedDay !== currentDay && (
+              <button onClick={() => setSelectedDay(currentDay)}
+                className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2 underline-hover"
+                style={{ background: 'transparent', color: PALETTE.ink }}>
+                <ArrowBack size={13} strokeWidth={2} /> {t('ch_back_today', lang)}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="f-mono text-[10px] uppercase tracking-[0.2em] mt-6" style={{ opacity: 0.55 }}>
+          {t('ch_safety', lang)}
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function PlanView({
   lang, setLang, age, goals, split, computed, week, diet, weightUnit, onBack, onOpenSave,
   weekNum, setWeekNum,
@@ -4514,6 +4860,9 @@ export default function FitLab() {
   // Guided workout session: { exercises, label, dayName } or null
   const [workoutSession, setWorkoutSession] = useState(null);
 
+  // 30-day challenge: { start, done } or null
+  const [challenge, setChallenge] = useState(null);
+
   // Saved plans (both workout + stretch live here, distinguished by .type)
   const [savedPlans, setSavedPlans] = useState([]);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -4532,6 +4881,7 @@ export default function FitLab() {
     let cancelled = false;
     loadAllPlans().then(plans => { if (!cancelled) setSavedPlans(plans); });
     loadBodyweightLog().then(entries => { if (!cancelled) setBodyweightLog(entries); });
+    loadChallenge().then(c => { if (!cancelled) setChallenge(c); });
     return () => { cancelled = true; };
   }, []);
 
@@ -4768,6 +5118,36 @@ export default function FitLab() {
     setGuidedOpen(false);
   };
 
+  // ---- 30-day challenge handlers ----
+  const handleStartChallenge = () => {
+    const data = { start: todayISO(), done: [] };
+    setChallenge(data);
+    persistChallenge(data);
+  };
+  const handleToggleChallengeDay = (day) => {
+    setChallenge((prev) => {
+      const base = prev || { start: todayISO(), done: [] };
+      const set = new Set(base.done || []);
+      set.has(day) ? set.delete(day) : set.add(day);
+      const next = { ...base, done: [...set].sort((a, b) => a - b) };
+      persistChallenge(next);
+      return next;
+    });
+  };
+  const handleRestartChallenge = () => {
+    if (!window.confirm(t('ch_restart_confirm', lang))) return;
+    const data = { start: todayISO(), done: [] };
+    setChallenge(data);
+    persistChallenge(data);
+  };
+  const handleStartChallengeDay = (dayData) => {
+    setWorkoutSession({
+      exercises: challengeSessionExercises(dayData.exercises),
+      label: t('mode_challenge', lang),
+      dayName: `Day ${dayData.day} · ${dayData.title}`,
+    });
+  };
+
   const statsValid = useMemo(() => {
     const w = parseFloat(weight);
     const tw = parseFloat(targetWeight);
@@ -4829,7 +5209,17 @@ export default function FitLab() {
     >
       <FontStyles />
 
-      {mode === 'stretch' ? (
+      {mode === 'challenge' ? (
+        <ChallengeView
+          lang={lang} setLang={setLang}
+          mode={mode} setMode={handleSetMode}
+          challenge={challenge}
+          onStart={handleStartChallenge}
+          onToggleDay={handleToggleChallengeDay}
+          onStartDay={handleStartChallengeDay}
+          onRestart={handleRestartChallenge}
+        />
+      ) : mode === 'stretch' ? (
         view === 'picker' ? (
           <StretchPicker
             lang={lang} setLang={setLang}
