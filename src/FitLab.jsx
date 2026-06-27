@@ -233,6 +233,19 @@ const STRINGS = {
     guided_skip: 'Skip',
     guided_restart: 'Restart',
 
+    // Guided workout session
+    start_session: 'Start session',
+    ws_exercise_of: 'Exercise {i} of {n}',
+    ws_set_of: 'Set {i} of {n}',
+    ws_done_set: 'Done set',
+    ws_rest: 'Rest',
+    ws_resting: 'Rest',
+    ws_skip_rest: 'Skip rest',
+    ws_finish: 'Finish',
+    ws_back: 'Back',
+    ws_complete: 'Workout complete',
+    ws_complete_sub: 'Strong work. That session is in the books.',
+
     // Stretch save
     save_routine: 'Save routine',
     saved_routines: 'Saved routines',
@@ -441,6 +454,19 @@ const STRINGS = {
     guided_exit: 'יציאה',
     guided_skip: 'דלג',
     guided_restart: 'התחלה מחדש',
+
+    // Guided workout session
+    start_session: 'התחל אימון',
+    ws_exercise_of: 'תרגיל {i} מתוך {n}',
+    ws_set_of: 'סט {i} מתוך {n}',
+    ws_done_set: 'סיימתי סט',
+    ws_rest: 'מנוחה',
+    ws_resting: 'מנוחה',
+    ws_skip_rest: 'דלג על המנוחה',
+    ws_finish: 'סיום',
+    ws_back: 'חזרה',
+    ws_complete: 'האימון הושלם',
+    ws_complete_sub: 'עבודה חזקה. האימון הזה מאחוריכם.',
 
     // Stretch save
     save_routine: 'שמירת שגרה',
@@ -762,6 +788,37 @@ const EX = {
   'foam-roll':    { name: 'Foam Roll Full Body', movement: 'mobility', equip: 'gym',  ages: ['20s','30s','40s'], query: 'foam roll full body' },
   'shoulder-disl':{ name: 'Shoulder Dislocates', movement: 'mobility', equip: 'gym',  ages: ['20s','30s','40s'], query: 'shoulder dislocates band' },
   'banded-stretch':{ name: 'Banded Stretch Circuit', movement: 'mobility', equip: 'gym', ages: ['20s','30s','40s'], query: 'banded stretching routine' },
+};
+
+// Curated, validated YouTube demonstration videos per exercise (each checked for
+// public availability via oEmbed AND playableInEmbed:true). Falls back to the
+// YouTube search link when an id has no entry here.
+const EX_VIDEOS = {
+  'bb-squat': 'S0H0JxLAOAY', 'goblet-squat': '6mf0oa2GGUc', 'leg-press': 'G4elY53UFOQ',
+  'hack-squat': 'hglQExHCM9Q', 'bw-squat': 'P-yaD24bUE8', 'jump-squat': 'tZSYZdtbONc',
+  'pistol-squat': 'NTf8YRWfOHY', 'split-squat': 'hiLF_pF3EJM', 'deadlift': 'GxsLrTzyGUU',
+  'rdl': 'uhghy9pFIPY', 'trap-bar-dl': 'PWJU5grrh4Y', 'kb-swing': 'sSESeQAir2M',
+  'glute-bridge': 'L9KZfxT654Y', 'sl-glute': 'VUl8R0kn6v4', 'good-morning': '61zbhuRiwQg',
+  'bench': 'gRVjAtPip0Y', 'db-bench': 'xhEhjF5ozuY', 'incline-db': 'sK4Rvug6ufo',
+  'machine-press': 'rY0B8UFdne0', 'push-up': 'WDIpL0pjun0', 'decline-pu': '5QFjmotLfW4',
+  'incline-pu': '0JUrOH--Kdk', 'diamond-pu': '_6AvEX9-k8E', 'ohp': 'a81SaIpjGlA',
+  'db-shoulder': '1jYq9QQEWqE', 'machine-shoulder': '3R14MnZbcpw', 'pike-pu': 'pHR5yG6xBps',
+  'handstand-pu': 'KEfazWGOUok', 'wall-walks': 'VpuoE246W1Y', 'lat-pulldown': 'EfvPfLOuC3Y',
+  'weighted-pull': 'j5PzQyhzk2I', 'cable-pullover': 'wNG6XUrwM6U', 'pull-up': 'MhokcbRLP5w',
+  'assisted-pull': 'XxV8q2Qxhrc', 'chin-up': 'e1YSApl-QcM', 'bb-row': 'G8l_8chR5BE',
+  'db-row': 'nMFCMNKnLgQ', 'cable-row': '7BkgqzC6WsM', 'chest-row': '_b6ch2nIchk',
+  'inverted-row': '11F_O_sZ1Z4', 'tabletop-row': 'dnpDUwqMX04', 'plank': 'mH5Sfb_KTGg',
+  'side-plank': '44ND4bOB-T0', 'bird-dog': 'ZdAHe9_HeEw', 'dead-bug': 'bxn9FBrt4-A',
+  'hanging-lr': 'vwl68EF9M2Q', 'hanging-kr': 'G6a5267YpHM', 'cable-chop': 'yPvAj_X_5NM',
+  'pallof-press': 'P16SQlmWj1o', 'burpee': 'G2hv_NYhM-A', 'mtn-climber': 'CQk4MHY2_Tc',
+  'jumping-jack': 'uLVt6u15L98', 'shadow-box': 'Q7VZf-2SwA0', 'hi-knees': 'D0GwAezTvtg',
+  'brisk-walk': 'tVpUCkMLgms', 'treadmill-hiit': 'nAWIl3ABckM', 'zone2': 'YU3INA7KPXI',
+  'incline-walk': 'NAsObfFJXvE', 'bike': 'Hbh_bMsSJzA', 'rower': '4zWu1yuJ0_g',
+  'walk-lunge': 'Pbmj6xPo-Hw', 'reverse-lunge': '94AXT7D3bKY', 'step-up': 'dQqApCGd5Ss',
+  'cossack': 'JaCbmoDqUc4', 'db-lunge': 'I34ysEkPK7w', 'db-step-up': '9ZknEYboBOQ',
+  'leg-curl': 'vl5nUdE9mWM', 'leg-extension': 'YyvSfVjQeL0', 'yoga': '8e-xsVYFCVA',
+  'sun-salutation': 'UPszTB6UzaA', 'cat-cow': '2tFpdTfIbKw', '90-90': 'wnFTIPhNySI',
+  'foam-roll': 'qTiqOyqQGs8', 'shoulder-disl': '7p-Ma0eksaY', 'banded-stretch': 'aCcdDB_Y13g',
 };
 
 // ------------------------------------------------------------
@@ -1342,6 +1399,7 @@ function buildWeek(splitId, age, goals, lang, swaps = {}, weekNum = 1) {
         return {
           ...ex,
           id,
+          video: EX_VIDEOS[id] || null,
           prescription: getPrescription(slot, goals, age, lang, weekNum),
           slot,
           slotIdx,
@@ -2223,12 +2281,17 @@ function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, on
             </button>
           )}
         </div>
+        {ex.video && (
+          <div className="mt-3 no-print">
+            <StretchVideo video={ex.video} title={ex.name} lazy maxWidth={400} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStartTimer }) {
+function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStartTimer, onStartWorkout }) {
   const dayDoneSet = completions[day.code] || new Set();
   const totalEx = day.gym.length + day.cali.length;
   const doneCount = dayDoneSet.size;
@@ -2265,11 +2328,20 @@ function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStar
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
           {/* Gym */}
           <div className="pt-2" style={{ borderTop: `1px solid ${PALETTE.ink}` }}>
-            <div className="flex items-center gap-2 my-3">
-              <Dumbbell size={14} strokeWidth={2} color={PALETTE.rust} />
-              <div className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: PALETTE.rust }}>
-                {t('track01', lang)}
+            <div className="flex items-center justify-between gap-2 my-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Dumbbell size={14} strokeWidth={2} color={PALETTE.rust} />
+                <div className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: PALETTE.rust }}>
+                  {t('track01', lang)}
+                </div>
               </div>
+              {day.gym.length > 0 && (
+                <button onClick={() => onStartWorkout(day.gym, t('track01', lang), day.name[lang])}
+                  className="no-print f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
+                  style={{ background: PALETTE.rust, color: PALETTE.cream, border: `1px solid ${PALETTE.rust}`, borderRadius: '999px' }}>
+                  <Play size={11} strokeWidth={2.5} /> {t('start_session', lang)}
+                </button>
+              )}
             </div>
             <div>
               {day.gym.map((ex, i) => {
@@ -2288,11 +2360,20 @@ function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStar
 
           {/* Calisthenics */}
           <div className="p-4 md:p-5" style={{ background: PALETTE.forest, color: PALETTE.cream, borderRadius: '3px' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Activity size={14} strokeWidth={2} color={PALETTE.sage} />
-              <div className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: PALETTE.sage }}>
-                {t('track02', lang)}
+            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Activity size={14} strokeWidth={2} color={PALETTE.sage} />
+                <div className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: PALETTE.sage }}>
+                  {t('track02', lang)}
+                </div>
               </div>
+              {day.cali.length > 0 && (
+                <button onClick={() => onStartWorkout(day.cali, t('track02', lang), day.name[lang])}
+                  className="no-print f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
+                  style={{ background: PALETTE.sage, color: PALETTE.ink, border: `1px solid ${PALETTE.sage}`, borderRadius: '999px' }}>
+                  <Play size={11} strokeWidth={2.5} /> {t('start_session', lang)}
+                </button>
+              )}
             </div>
             <div>
               {day.cali.map((ex, i) => {
@@ -3026,6 +3107,208 @@ function GuidedPlayer({ items, lang, onClose }) {
   );
 }
 
+// ------------------------------------------------------------
+// Guided workout session (full-screen, manual set-by-set advance)
+// ------------------------------------------------------------
+
+// Parse "N × M…" prescriptions into a set count + per-set target text.
+// Cardio/mobility ("20 min HIIT", "10 min flow") become a single timed block.
+function parseSets(prescription) {
+  const m = (prescription || '').match(/^(\d+)\s*[×x]\s*(.+)$/);
+  if (m) return { sets: parseInt(m[1], 10), target: m[2].trim() };
+  return { sets: 1, target: (prescription || '').trim() };
+}
+
+function buildWorkoutSteps(exercises) {
+  const steps = [];
+  exercises.forEach((ex, exIdx) => {
+    const { sets, target } = parseSets(ex.prescription);
+    for (let s = 1; s <= sets; s++) {
+      steps.push({ ex, exIdx, setNum: s, totalSets: sets, target });
+    }
+  });
+  return steps;
+}
+
+function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose }) {
+  const steps = useMemo(() => buildWorkoutSteps(exercises), [exercises]);
+
+  const [stepIdx, setStepIdx] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [restLeft, setRestLeft] = useState(0);
+
+  const resting = restLeft > 0;
+  const step = steps[stepIdx] || null;
+  const isLast = stepIdx >= steps.length - 1;
+
+  useEffect(() => {
+    if (!resting) return;
+    const id = setTimeout(() => {
+      setRestLeft((s) => {
+        if (s <= 1) { playBeep(220, 760); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [resting, restLeft]);
+
+  const next = () => {
+    setRestLeft(0);
+    if (isLast) {
+      playBeep(300, 880); setTimeout(() => playBeep(300, 1040), 300);
+      setFinished(true);
+    } else {
+      setStepIdx((i) => i + 1);
+    }
+  };
+  const prev = () => { setRestLeft(0); setStepIdx((i) => Math.max(0, i - 1)); };
+  const startRest = () => { if (step?.ex?.restSeconds > 0) setRestLeft(step.ex.restSeconds); };
+  const restart = () => { setFinished(false); setStepIdx(0); setRestLeft(0); };
+
+  const totalExercises = exercises.length;
+  const progressPct = steps.length ? Math.round((stepIdx / steps.length) * 100) : 0;
+  const restTotal = step?.ex?.restSeconds || 1;
+  const numericTarget = step && /^[\d]+([–-][\d]+)?$/.test(step.target);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col no-print"
+      style={{ background: PALETTE.ink, color: PALETTE.cream }}
+      dir={isRTL(lang) ? 'rtl' : 'ltr'}>
+
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="f-mono text-[10px] uppercase tracking-[0.25em] flex items-center gap-2" style={{ color: PALETTE.sage }}>
+          <Dumbbell size={12} strokeWidth={2} style={{ verticalAlign: '-2px' }} />
+          {trackLabel}{dayName ? ` · ${dayName}` : ''}
+        </div>
+        <button onClick={onClose}
+          className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
+          style={{ border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', color: PALETTE.cream }}>
+          <X size={12} strokeWidth={2} /> {t('guided_exit', lang)}
+        </button>
+      </div>
+
+      {!finished && (
+        <div className="px-6">
+          <div className="h-1 overflow-hidden" style={{ background: 'rgba(242,235,221,0.18)', borderRadius: '999px' }} dir="ltr">
+            <div style={{ width: `${progressPct}%`, height: '100%', background: PALETTE.sage, transition: 'width 0.5s ease' }} />
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 text-center overflow-y-auto">
+        {finished ? (
+          <div className="rise">
+            <div className="flex items-center justify-center mx-auto mb-6" style={{ width: 80, height: 80, borderRadius: '50%', background: PALETTE.sage }}>
+              <Check size={40} strokeWidth={2.5} color={PALETTE.ink} />
+            </div>
+            <h2 className="f-display font-bold" style={{ fontSize: 'clamp(36px,6vw,64px)', letterSpacing: '-0.03em' }}>
+              {t('ws_complete', lang)}
+            </h2>
+            <p className="f-italic text-lg md:text-xl mt-3" style={{ opacity: 0.8 }}>
+              {t('ws_complete_sub', lang)}
+            </p>
+            <div className="flex items-center justify-center gap-3 mt-8 flex-wrap">
+              <button onClick={restart}
+                className="f-mono uppercase tracking-[0.2em] px-6 py-3 text-xs flex items-center gap-2"
+                style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px' }}>
+                <RotateCcw size={12} strokeWidth={2} /> {t('guided_restart', lang)}
+              </button>
+              <button onClick={onClose}
+                className="f-mono uppercase tracking-[0.2em] px-6 py-3 text-xs flex items-center gap-2"
+                style={{ background: PALETTE.rust, color: PALETTE.cream, border: `1px solid ${PALETTE.rust}`, borderRadius: '999px' }}>
+                <Check size={12} strokeWidth={2} /> {t('guided_exit', lang)}
+              </button>
+            </div>
+          </div>
+        ) : resting ? (
+          <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
+            <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: PALETTE.sage }}>
+              {t('ws_resting', lang)}
+            </div>
+            <div className="relative mx-auto" style={{ width: 220, height: 220 }}>
+              <svg width="100%" height="100%" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(242,235,221,0.15)" strokeWidth="8" />
+                <circle cx="110" cy="110" r="100" fill="none" stroke={PALETTE.sage} strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 100}
+                  strokeDashoffset={2 * Math.PI * 100 * (1 - restLeft / restTotal)}
+                  style={{ transition: 'stroke-dashoffset 1s linear' }} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="f-display font-bold" style={{ fontSize: '72px', lineHeight: 1 }} dir="ltr">{restLeft}</span>
+              </div>
+            </div>
+            {step && (
+              <div className="f-mono text-[10px] uppercase tracking-[0.25em] mt-8" style={{ opacity: 0.55 }} dir="ltr">
+                {t('guided_next_up', lang)}: {step.ex.name}
+              </div>
+            )}
+          </div>
+        ) : step ? (
+          <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
+            <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: PALETTE.sage }}>
+              {t('ws_exercise_of', lang, { i: step.exIdx + 1, n: totalExercises })}
+            </div>
+
+            <h2 className="f-display font-bold" style={{ fontSize: 'clamp(28px,5vw,52px)', letterSpacing: '-0.03em', lineHeight: 1.02 }} dir="ltr">
+              {step.ex.name}
+            </h2>
+
+            {step.totalSets > 1 && (
+              <div className="f-mono text-xs uppercase tracking-[0.25em] mt-3 inline-flex items-center gap-2 px-3 py-1.5"
+                style={{ border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', color: PALETTE.cream }}>
+                {t('ws_set_of', lang, { i: step.setNum, n: step.totalSets })}
+              </div>
+            )}
+
+            <div className="f-display font-bold mt-4" style={{ fontSize: 'clamp(34px,7vw,68px)', lineHeight: 1, color: PALETTE.sage }} dir="ltr">
+              {step.target}{numericTarget ? <span className="f-body" style={{ fontSize: '0.32em', opacity: 0.7, marginInlineStart: '0.5rem' }}>{lang === 'he' ? 'חזרות' : 'reps'}</span> : null}
+            </div>
+
+            {step.ex.video && (
+              <div className="mt-7 mx-auto" style={{ width: '100%', maxWidth: 480 }}>
+                <StretchVideo key={step.ex.id} video={step.ex.video} title={step.ex.name} autoplay />
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {!finished && (
+        <div className="flex items-center justify-center gap-3 px-6 py-8 flex-wrap">
+          {resting ? (
+            <button onClick={() => setRestLeft(0)}
+              className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
+              style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 160, justifyContent: 'center' }}>
+              <SkipForward size={14} strokeWidth={2.5} /> {t('ws_skip_rest', lang)}
+            </button>
+          ) : (
+            <>
+              <button onClick={prev} disabled={stepIdx === 0}
+                className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+                style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', opacity: stepIdx === 0 ? 0.35 : 1, cursor: stepIdx === 0 ? 'not-allowed' : 'pointer' }}>
+                <ArrowLeft size={13} strokeWidth={2} /> {t('ws_back', lang)}
+              </button>
+              {step?.ex?.restSeconds > 0 && (
+                <button onClick={startRest}
+                  className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+                  style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
+                  <Timer size={13} strokeWidth={2} /> {t('ws_rest', lang)} {step.ex.restSeconds}s
+                </button>
+              )}
+              <button onClick={next}
+                className="f-mono uppercase tracking-[0.2em] px-7 py-3.5 text-xs flex items-center gap-2"
+                style={{ background: PALETTE.sage, color: PALETTE.ink, border: `1px solid ${PALETTE.sage}`, borderRadius: '999px', minWidth: 150, justifyContent: 'center' }}>
+                {isLast ? <Check size={14} strokeWidth={2.5} /> : <SkipForward size={14} strokeWidth={2.5} />}
+                {isLast ? t('ws_finish', lang) : t('ws_done_set', lang)}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanView({
   lang, setLang, age, goals, split, computed, week, diet, weightUnit, onBack, onOpenSave,
   weekNum, setWeekNum,
@@ -3033,7 +3316,7 @@ function PlanView({
   onSwap,
   onPrint,
   bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry,
-  onStartTimer,
+  onStartTimer, onStartWorkout,
 }) {
   const ageObj = AGE_GROUPS.find((a) => a.id === age);
   const splitObj = SPLITS[split];
@@ -3225,6 +3508,7 @@ function PlanView({
               onToggleComplete={onToggleComplete}
               onSwap={onSwap}
               onStartTimer={onStartTimer}
+              onStartWorkout={onStartWorkout}
             />
           ))}
         </div>
@@ -4206,6 +4490,9 @@ export default function FitLab() {
   const [stretchHold, setStretchHold] = useState(30);          // seconds per hold
   const [guidedOpen, setGuidedOpen] = useState(false);
 
+  // Guided workout session: { exercises, label, dayName } or null
+  const [workoutSession, setWorkoutSession] = useState(null);
+
   // Saved plans (both workout + stretch live here, distinguished by .type)
   const [savedPlans, setSavedPlans] = useState([]);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -4586,6 +4873,7 @@ export default function FitLab() {
           onOpenWeightLog={() => setLogModalOpen(true)}
           onDeleteWeightEntry={handleDeleteWeightEntry}
           onStartTimer={(ex) => setActiveTimer(ex)}
+          onStartWorkout={(exercises, label, dayName) => setWorkoutSession({ exercises, label, dayName })}
         />
       )}
 
@@ -4611,6 +4899,16 @@ export default function FitLab() {
           items={stretchItems}
           lang={lang}
           onClose={() => setGuidedOpen(false)}
+        />
+      )}
+
+      {workoutSession && (
+        <GuidedWorkout
+          exercises={workoutSession.exercises}
+          trackLabel={workoutSession.label}
+          dayName={workoutSession.dayName}
+          lang={lang}
+          onClose={() => setWorkoutSession(null)}
         />
       )}
 
