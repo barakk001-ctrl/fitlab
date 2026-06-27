@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import {
   ArrowLeft, ArrowRight, Flame, Dumbbell, Activity, Heart, ExternalLink,
   Utensils, Sparkles, Ruler, Scale, Target, User, CalendarDays, Check, RefreshCw, Languages,
   Save, Trash2, X, Bookmark, FolderOpen,
   Shuffle, Printer, Timer, Play, Pause, RotateCcw, SkipForward, TrendingUp, Plus,
-  CheckCircle2, Circle, ChevronLeft, ChevronRight,
-  StretchHorizontal, Sunrise, Wind, Moon, Armchair, PersonStanding, Clock, ListChecks
+  CheckCircle2, Circle, ChevronLeft, ChevronRight, Search,
+  StretchHorizontal, Sunrise, Wind, Moon, Sun, Armchair, PersonStanding, Clock, ListChecks
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, Tooltip, ResponsiveContainer
@@ -16,14 +16,25 @@ import {
 //              print, rest timer, bodyweight log, stretch plans
 // ============================================================
 
-const PALETTE = {
-  cream: '#F2EBDD',
-  ink: '#1B1B19',
-  rust: '#C25A3F',
-  forest: '#27392B',
-  sage: '#8A9A82',
-  paper: '#FBF7EF',
+// Light/dark palettes. The app reads PALETTE.* at render time (inline styles AND
+// SVG attributes), so swapping these values + re-rendering re-themes everything.
+// cream = page bg, ink = text/lines (opposites), paper = card bg; they invert
+// together so the cream/ink pairing stays coherent in both themes.
+const LIGHT = {
+  cream: '#F2EBDD', ink: '#1B1B19', rust: '#C25A3F', forest: '#27392B', sage: '#8A9A82', paper: '#FBF7EF',
 };
+const DARK = {
+  cream: '#15140F', ink: '#ECE6D8', rust: '#DA6E50', forest: '#33503A', sage: '#A6B79B', paper: '#211F18',
+};
+const PALETTE = { ...LIGHT };
+function applyTheme(theme) { Object.assign(PALETTE, theme === 'dark' ? DARK : LIGHT); }
+function readStoredTheme() {
+  try { return window.localStorage.getItem('fitlab:theme') === 'dark' ? 'dark' : 'light'; } catch { return 'light'; }
+}
+// Apply at module load so the very first paint matches the stored theme.
+applyTheme(readStoredTheme());
+
+const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} });
 
 // ------------------------------------------------------------
 // i18n helpers
@@ -291,6 +302,7 @@ const STRINGS = {
     ws_done_set: 'Done set',
     ws_rest: 'Rest',
     ws_resting: 'Rest',
+    ws_start_timer: 'Timer',
     ws_skip_rest: 'Skip rest',
     ws_finish: 'Finish',
     ws_back: 'Back',
@@ -564,6 +576,7 @@ const STRINGS = {
     ws_done_set: 'סיימתי סט',
     ws_rest: 'מנוחה',
     ws_resting: 'מנוחה',
+    ws_start_timer: 'טיימר',
     ws_skip_rest: 'דלג על המנוחה',
     ws_finish: 'סיום',
     ws_back: 'חזרה',
@@ -2072,6 +2085,7 @@ function Pill({ children, color = PALETTE.ink, bg = 'transparent' }) {
 }
 
 function MastHead({ subtitle, lang, setLang, mode, setMode }) {
+  const { theme, toggleTheme } = useContext(ThemeContext);
   return (
     <header className="flex items-center justify-between px-6 md:px-12 py-5 gap-3 flex-wrap"
       style={{ borderBottom: `1px solid ${PALETTE.ink}` }}>
@@ -2122,6 +2136,15 @@ function MastHead({ subtitle, lang, setLang, mode, setMode }) {
         >
           <Languages size={12} strokeWidth={1.8} />
           {lang === 'en' ? 'עברית' : 'English'}
+        </button>
+        <button
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          title={theme === 'dark' ? 'Light' : 'Dark'}
+          className="flex items-center justify-center no-print"
+          style={{ border: `1px solid ${PALETTE.ink}`, borderRadius: '999px', color: PALETTE.ink, width: 30, height: 30 }}
+        >
+          {theme === 'dark' ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
         </button>
       </div>
     </header>
@@ -3394,6 +3417,20 @@ function logUnitForScheme(scheme) {
   return 'reps';
 }
 
+// Seconds for a timed target ("45 sec", "20 min HIIT"), or null for rep-based sets.
+function parseTimedSeconds(text) {
+  const s = text || '';
+  let m = s.match(/(\d+)\s*(?:sec|שנ)/);
+  if (m) return parseInt(m[1], 10);
+  m = s.match(/(\d+)\s*(?:min|דק)/);
+  if (m) return parseInt(m[1], 10) * 60;
+  return null;
+}
+const fmtMMSS = (sec) => {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}`;
+};
+
 // Compact inline "log your result" control shown on each exercise in the guided workout.
 function QuickLog({ name, unit, lang, onLog }) {
   const [value, setValue] = useState('');
@@ -3431,12 +3468,18 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const [finished, setFinished] = useState(false);
   const [restLeft, setRestLeft] = useState(0);
   const [restDuration, setRestDuration] = useState(60); // chosen rest length, default 60s
+  // Timed-set timer (for "45 sec" / "20 min" targets): 3-2-1 count-in then countdown.
+  const [workLeft, setWorkLeft] = useState(0);
+  const [workTotal, setWorkTotal] = useState(0);
+  const [countIn, setCountIn] = useState(0);
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
 
   const resting = restLeft > 0;
+  const working = countIn > 0 || workLeft > 0;
   const step = steps[stepIdx] || null;
   const isLast = stepIdx >= steps.length - 1;
+  const timedSec = step ? parseTimedSeconds(step.target) : null;
 
   useEffect(() => {
     if (!resting) return;
@@ -3449,8 +3492,27 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     return () => clearTimeout(id);
   }, [resting, restLeft]);
 
+  // Count-in 3-2-1, then begin the work countdown.
+  useEffect(() => {
+    if (countIn <= 0) return;
+    const id = setTimeout(() => {
+      if (countIn === 1) { setCountIn(0); setWorkLeft(workTotal); playBeep(260, 880); }
+      else { setCountIn((c) => c - 1); playBeep(110, 640); }
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [countIn, workTotal]);
+
+  useEffect(() => {
+    if (workLeft <= 0) return;
+    const id = setTimeout(() => {
+      setWorkLeft((s) => { if (s <= 1) { playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); return 0; } return s - 1; });
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [workLeft]);
+
+  const stopTimers = () => { setRestLeft(0); setWorkLeft(0); setCountIn(0); };
   const next = () => {
-    setRestLeft(0);
+    stopTimers();
     if (isLast) {
       playBeep(300, 880); setTimeout(() => playBeep(300, 1040), 300);
       setFinished(true);
@@ -3458,10 +3520,11 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
       setStepIdx((i) => i + 1);
     }
   };
-  const prev = () => { setRestLeft(0); setStepIdx((i) => Math.max(0, i - 1)); };
+  const prev = () => { stopTimers(); setStepIdx((i) => Math.max(0, i - 1)); };
   const startRest = () => setRestLeft(restDuration);
   const setRest = (v) => { setRestDuration(v); if (resting) setRestLeft(v); };
-  const restart = () => { setFinished(false); setStepIdx(0); setRestLeft(0); };
+  const startWork = () => { if (timedSec) { setWorkTotal(timedSec); setCountIn(3); } };
+  const restart = () => { setFinished(false); setStepIdx(0); stopTimers(); };
 
   const totalExercises = exercises.length;
   const progressPct = steps.length ? Math.round((stepIdx / steps.length) * 100) : 0;
@@ -3536,6 +3599,31 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
               </button>
             </div>
           </div>
+        ) : working ? (
+          <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
+            <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: PALETTE.sage }} dir="ltr">
+              {step ? step.ex.name : ''}
+            </div>
+            <div className="relative mx-auto" style={{ width: 220, height: 220 }}>
+              <svg width="100%" height="100%" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(242,235,221,0.15)" strokeWidth="8" />
+                <circle cx="110" cy="110" r="100" fill="none" stroke={PALETTE.rust} strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 100}
+                  strokeDashoffset={2 * Math.PI * 100 * (1 - (countIn > 0 ? 1 : workLeft / (workTotal || 1)))}
+                  style={{ transition: 'stroke-dashoffset 1s linear' }} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="f-display font-bold" style={{ fontSize: countIn > 0 ? '88px' : '64px', lineHeight: 1, color: countIn > 0 ? PALETTE.rust : PALETTE.cream }} dir="ltr">
+                  {countIn > 0 ? countIn : fmtMMSS(workLeft)}
+                </span>
+              </div>
+            </div>
+            {countIn > 0 && (
+              <div className="f-mono text-[10px] uppercase tracking-[0.3em] mt-6" style={{ color: PALETTE.sage }}>
+                {t('guided_get_ready', lang)}
+              </div>
+            )}
+          </div>
         ) : resting ? (
           <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
             <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: PALETTE.sage }}>
@@ -3598,7 +3686,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
 
       {!finished && (
         <div className="flex items-center justify-center gap-3 px-6 py-8 flex-wrap">
-          {resting ? (
+          {working ? (
+            <button onClick={stopTimers}
+              className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
+              style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 160, justifyContent: 'center' }}>
+              <SkipForward size={14} strokeWidth={2.5} /> {t('ws_skip_rest', lang)}
+            </button>
+          ) : resting ? (
             <button onClick={() => setRestLeft(0)}
               className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
               style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 160, justifyContent: 'center' }}>
@@ -3611,6 +3705,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
                 style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', opacity: stepIdx === 0 ? 0.35 : 1, cursor: stepIdx === 0 ? 'not-allowed' : 'pointer' }}>
                 <ArrowLeft size={13} strokeWidth={2} /> {t('ws_back', lang)}
               </button>
+              {timedSec && (
+                <button onClick={startWork}
+                  className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+                  style={{ background: PALETTE.rust, color: PALETTE.cream, border: `1px solid ${PALETTE.rust}`, borderRadius: '999px' }}>
+                  <Timer size={13} strokeWidth={2} /> {t('ws_start_timer', lang)} {fmtMMSS(timedSec)}
+                </button>
+              )}
               <button onClick={startRest}
                 className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
                 style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
@@ -5132,6 +5233,18 @@ function SavedPlansSection({ savedPlans, onLoad, onDelete, lang }) {
 
 export default function FitLab() {
   const [lang, setLang] = useState('en');
+  const [theme, setTheme] = useState(readStoredTheme);
+  applyTheme(theme); // keep the shared PALETTE in sync on every render
+  const toggleTheme = () => setTheme((tprev) => {
+    const next = tprev === 'dark' ? 'light' : 'dark';
+    try { window.localStorage.setItem('fitlab:theme', next); } catch {}
+    return next;
+  });
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? DARK.cream : LIGHT.cream);
+  }, [theme]);
+
   const [mode, setMode] = useState('workout');     // 'workout' | 'stretch'
   const [age, setAge] = useState(null);
   const [goals, setGoals] = useState([]);
@@ -5528,6 +5641,7 @@ export default function FitLab() {
   }, [view]);
 
   return (
+   <ThemeContext.Provider value={{ theme, toggleTheme }}>
     <div
       className="min-h-screen relative grain f-body"
       dir={isRTL(lang) ? 'rtl' : 'ltr'}
@@ -5698,5 +5812,6 @@ export default function FitLab() {
         </div>
       )}
     </div>
+   </ThemeContext.Provider>
   );
 }
