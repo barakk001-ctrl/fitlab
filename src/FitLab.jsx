@@ -920,7 +920,14 @@ const EX_VIDEOS = {
 const EX_NAME_VIDEO = Object.fromEntries(
   Object.entries(EX).map(([id, ex]) => [ex.name, EX_VIDEOS[id] || null])
 );
-const CHALLENGE_VIDEO_OVERRIDE = { 'Pistol Squat (advanced)': EX_VIDEOS['pistol-squat'] };
+const CHALLENGE_VIDEO_OVERRIDE = {
+  'Pistol Squat (advanced)': EX_VIDEOS['pistol-squat'],
+  'Wall Sit': 'JaZNYM3zAP0',
+  'Superman': 'hhq86gJvrvo',
+  'Calf Raise': 'Uyg2QR1WAq8',
+  'Plank Shoulder Taps': 'gKA5LBy7WAI',
+  'Walking': 'tVpUCkMLgms',
+};
 const challengeVideo = (name) => CHALLENGE_VIDEO_OVERRIDE[name] || EX_NAME_VIDEO[name] || null;
 
 // Convert a challenge day's exercises into the shape GuidedWorkout expects.
