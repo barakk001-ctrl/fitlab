@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, Flame, Dumbbell, Activity, Heart, ExternalLink,
   Utensils, Sparkles, Ruler, Scale, Target, User, CalendarDays, Check, RefreshCw, Languages,
@@ -4290,7 +4291,7 @@ function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart, item
         </div>
       </section>
 
-      {preview && (
+      {preview && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-5 no-print" style={{ background: 'rgba(0,0,0,0.86)' }} onClick={() => setPreview(null)}>
           <div style={{ width: '100%', maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2.5">
@@ -4302,7 +4303,8 @@ function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart, item
             </div>
             <StretchVideo video={preview.video} title={preview.name} autoplay />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
