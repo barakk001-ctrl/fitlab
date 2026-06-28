@@ -2038,6 +2038,9 @@ function FontStyles() {
       }
       .meal-flash { animation: flash .35s ease-out; }
 
+      /* Make the YouTube IFrame-API player fill its 16:9 container */
+      .vid-embed iframe { position: absolute; inset: 0; width: 100% !important; height: 100% !important; border: 0; }
+
       .ticker-line { background: repeating-linear-gradient(90deg, ${PALETTE.ink} 0 6px, transparent 6px 12px); height: 1px; }
 
       .meal-row { transition: background-color .25s ease; cursor: pointer; }
@@ -3040,25 +3043,73 @@ function StretchPicker({
 // Embedded stretch demonstration video (responsive 16:9)
 // ------------------------------------------------------------
 
-function StretchVideo({ video, title, autoplay = false, lazy = false, maxWidth }) {
+// Lazily load the YouTube IFrame Player API once; resolves with window.YT.
+let ytApiPromise = null;
+function loadYouTubeAPI() {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise((resolve) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); resolve(window.YT); };
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  });
+  return ytApiPromise;
+}
+
+const videoPoster = (video) => `https://i.ytimg.com/vi/${video}/hqdefault.jpg`;
+const posterStyle = (loaded) => ({ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 0 : 1, transition: 'opacity .4s ease' });
+const frameWrap = (maxWidth) => ({ position: 'relative', width: '100%', maxWidth: maxWidth || '100%', aspectRatio: '16 / 9', borderRadius: '8px', overflow: 'hidden', background: '#000' });
+
+// Autoplaying demo that loops ONLY the exercise segment — replays from the
+// per-video start time instead of YouTube's default loop-back-to-0 (the intro).
+function LoopingPlayer({ video, title, maxWidth }) {
+  const holderRef = useRef(null);
+  const playerRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const start = VIDEO_START[video] || 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    loadYouTubeAPI().then((YT) => {
+      if (cancelled || !YT || !holderRef.current) return;
+      playerRef.current = new YT.Player(holderRef.current, {
+        width: '100%', height: '100%', videoId: video,
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1, start, loop: 0 },
+        events: {
+          onReady: (e) => { try { e.target.mute(); if (start > 0) e.target.seekTo(start, true); e.target.playVideo(); } catch {} },
+          onStateChange: (e) => {
+            if (e.data === 1) setLoaded(true);            // PLAYING → reveal
+            if (e.data === 0) { try { e.target.seekTo(start, true); e.target.playVideo(); } catch {} } // ENDED → loop from start
+          },
+        },
+      });
+    });
+    return () => { cancelled = true; try { playerRef.current && playerRef.current.destroy(); } catch {} };
+  }, [video, start]);
+
+  return (
+    <div className="vid-embed" style={frameWrap(maxWidth)}>
+      <img src={videoPoster(video)} alt={title || ''} aria-hidden="true" style={posterStyle(loaded)} />
+      <div ref={holderRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+    </div>
+  );
+}
+
+// Lightweight embed for lists — plain (lazy) iframe, opens at the start time.
+function SimpleEmbed({ video, title, lazy, maxWidth }) {
   const [loaded, setLoaded] = useState(false);
   useEffect(() => { setLoaded(false); }, [video]);
-  if (!video) return null;
   return (
-    <div style={{
-      position: 'relative', width: '100%', maxWidth: maxWidth || '100%',
-      aspectRatio: '16 / 9', borderRadius: '8px', overflow: 'hidden', background: '#000',
-    }}>
-      {/* Instant poster — shows the move immediately while the player boots */}
-      <img
-        src={`https://i.ytimg.com/vi/${video}/hqdefault.jpg`}
-        alt={title || ''}
-        aria-hidden="true"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 0 : 1, transition: 'opacity .4s ease' }}
-      />
+    <div style={frameWrap(maxWidth)}>
+      <img src={videoPoster(video)} alt={title || ''} aria-hidden="true" style={posterStyle(loaded)} />
       <iframe
-        src={stretchEmbedSrc(video, { autoplay })}
-        title={title || 'Stretch demonstration'}
+        src={stretchEmbedSrc(video, { autoplay: false })}
+        title={title || 'Demonstration'}
         loading={lazy ? 'lazy' : 'eager'}
         onLoad={() => setLoaded(true)}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -3067,6 +3118,15 @@ function StretchVideo({ video, title, autoplay = false, lazy = false, maxWidth }
       />
     </div>
   );
+}
+
+function StretchVideo({ video, title, autoplay = false, lazy = false, maxWidth }) {
+  if (!video) return null;
+  // Autoplay contexts (guided session, preview) get the segment-looping player;
+  // lists keep the cheap lazy iframe.
+  return autoplay
+    ? <LoopingPlayer key={video} video={video} title={title} maxWidth={maxWidth} />
+    : <SimpleEmbed key={video} video={video} title={title} lazy={lazy} maxWidth={maxWidth} />;
 }
 
 // ------------------------------------------------------------
