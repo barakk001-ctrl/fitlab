@@ -4128,6 +4128,7 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
 function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart, items, setItems, onSaveOpen, savedCustoms, onLoadPlan, onDeletePlan }) {
   const [query, setQuery] = useState('');
   const [equip, setEquip] = useState('all'); // all | gym | cali
+  const [preview, setPreview] = useState(null); // { video, name } or null
   const selected = items;
   const ArrowBack = isRTL(lang) ? ArrowRight : ArrowLeft;
   const selectedIds = new Set(selected.map((s) => s.id));
@@ -4257,20 +4258,52 @@ function CustomBuilderView({ lang, setLang, mode, setMode, onBack, onStart, item
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {library.map(([id, ex]) => {
             const added = selectedIds.has(id);
+            const video = EX_VIDEOS[id];
             return (
-              <button key={id} onClick={() => added ? remove(id) : add(id)}
-                className="flex items-center justify-between gap-3 p-3.5 text-start"
-                style={{ background: added ? PALETTE.forest : PALETTE.paper, color: added ? PALETTE.cream : PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px' }}>
-                <div className="min-w-0">
-                  <div className="f-display font-semibold truncate" dir="ltr">{ex.name}</div>
-                  <div className="f-mono text-[9px] uppercase tracking-[0.15em] mt-0.5" style={{ opacity: 0.6 }}>{ex.equip === 'gym' ? t('build_filter_gym', lang) : t('build_filter_cali', lang)}</div>
-                </div>
-                {added ? <Check size={16} strokeWidth={2.5} color={PALETTE.sage} /> : <Plus size={16} strokeWidth={2} style={{ opacity: 0.7 }} />}
-              </button>
+              <div key={id} style={{ background: added ? PALETTE.forest : PALETTE.paper, color: added ? PALETTE.cream : PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px', overflow: 'hidden' }}>
+                {video && (
+                  <button onClick={() => setPreview({ video, name: ex.name })}
+                    title={ex.name}
+                    style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '16 / 9', background: '#000' }}>
+                    <img src={`https://i.ytimg.com/vi/${video}/mqdefault.jpg`} alt={ex.name} loading="lazy"
+                      onError={(e) => { e.currentTarget.src = `https://i.ytimg.com/vi/${video}/hqdefault.jpg`; }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <span className="flex items-center justify-center" style={{ position: 'absolute', inset: 0 }}>
+                      <span className="flex items-center justify-center" style={{ width: 40, height: 40, borderRadius: '999px', background: 'rgba(0,0,0,0.55)' }}>
+                        <Play size={18} strokeWidth={2} color="#fff" style={{ marginInlineStart: 2 }} />
+                      </span>
+                    </span>
+                  </button>
+                )}
+                <button onClick={() => added ? remove(id) : add(id)}
+                  className="flex items-center justify-between gap-3 p-3 text-start w-full"
+                  style={{ color: 'inherit' }}>
+                  <div className="min-w-0">
+                    <div className="f-display font-semibold truncate" dir="ltr">{ex.name}</div>
+                    <div className="f-mono text-[9px] uppercase tracking-[0.15em] mt-0.5" style={{ opacity: 0.6 }}>{ex.equip === 'gym' ? t('build_filter_gym', lang) : t('build_filter_cali', lang)}</div>
+                  </div>
+                  {added ? <Check size={16} strokeWidth={2.5} color={PALETTE.sage} /> : <Plus size={16} strokeWidth={2} style={{ opacity: 0.7 }} />}
+                </button>
+              </div>
             );
           })}
         </div>
       </section>
+
+      {preview && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-5 no-print" style={{ background: 'rgba(0,0,0,0.86)' }} onClick={() => setPreview(null)}>
+          <div style={{ width: '100%', maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="f-display font-bold text-lg" style={{ color: '#fff' }} dir="ltr">{preview.name}</span>
+              <button onClick={() => setPreview(null)} className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
+                style={{ border: '1px solid rgba(255,255,255,0.4)', borderRadius: '999px', color: '#fff' }}>
+                <X size={12} strokeWidth={2} /> {t('guided_exit', lang)}
+              </button>
+            </div>
+            <StretchVideo video={preview.video} title={preview.name} autoplay />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
