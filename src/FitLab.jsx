@@ -1927,9 +1927,39 @@ const STRETCH_VIDEOS = {
   'prayer-stretch': 'vjhQCfF5Y-g',
 };
 
+// Per-video start time (seconds) — skips intro/talking so the embed opens
+// exactly when the exercise demonstration begins. Keyed by YouTube id.
+// Populated from frame-by-frame analysis of each video. Videos that already
+// open on the movement are omitted (start 0).
+const VIDEO_START = {
+  '54y0JAT46vE': 23, 'u8C5LgpK3r4': 11, 'YVeNysiuHz0': 23, 'aIq0fLi8iak': 5,
+  'IKJZL4hvppw': 34, 'Dmm8_S23I74': 35, 'UomKzkyp6kQ': 12, 'M850sCj9LHQ': 14,
+  'ajyYXAERp3k': 32, 'YYudWYM5Q9g': 6, 'kH12QrSGedM': 10, 'LugNxxfIdvo': 6,
+  'beQs5ChCZ0U': 5, '46phRH_09yM': 28, 'E3hA2p1d57g': 12, 'Q4Ko275cluo': 11,
+  '5BqMsUYg_Q8': 3, 'e3DZzHcwk3o': 35, '2s2t3mEYZNo': 4, 'oJX8EKF3TqM': 11,
+  'Il1L75v6gq0': 4, 'kia2OzZiwqw': 7, 'dLnIM3KDReo': 14, 'YTYQo4WvJHA': 17,
+  'drJYhTQWcAk': 14, 'i-JV2PsFzWA': 4, '_uINTR_7X-g': 5, 'S0H0JxLAOAY': 14,
+  '6mf0oa2GGUc': 20, 'G4elY53UFOQ': 5, 'hglQExHCM9Q': 3, 'P-yaD24bUE8': 8,
+  'hiLF_pF3EJM': 34, 'GxsLrTzyGUU': 22, 'PWJU5grrh4Y': 5, 'sSESeQAir2M': 12,
+  'L9KZfxT654Y': 12, 'VUl8R0kn6v4': 4, '61zbhuRiwQg': 8, 'gRVjAtPip0Y': 5,
+  'xhEhjF5ozuY': 11, 'sK4Rvug6ufo': 6, '5QFjmotLfW4': 10, '1jYq9QQEWqE': 14,
+  '3R14MnZbcpw': 42, 'KEfazWGOUok': 20, 'VpuoE246W1Y': 5, 'j5PzQyhzk2I': 13,
+  'XxV8q2Qxhrc': 48, 'G8l_8chR5BE': 30, 'nMFCMNKnLgQ': 14, '7BkgqzC6WsM': 88,
+  '_b6ch2nIchk': 33, '11F_O_sZ1Z4': 26, 'dnpDUwqMX04': 102, 'mH5Sfb_KTGg': 26,
+  'yPvAj_X_5NM': 12, 'G2hv_NYhM-A': 6, 'CQk4MHY2_Tc': 7, 'Q7VZf-2SwA0': 14,
+  'D0GwAezTvtg': 21, 'nAWIl3ABckM': 26, 'Hbh_bMsSJzA': 8, '4zWu1yuJ0_g': 2,
+  'Pbmj6xPo-Hw': 2, '94AXT7D3bKY': 16, 'dQqApCGd5Ss': 11, 'I34ysEkPK7w': 11,
+  'vl5nUdE9mWM': 19, 'YyvSfVjQeL0': 54, '8e-xsVYFCVA': 44, '2tFpdTfIbKw': 2,
+  'qTiqOyqQGs8': 11, '7p-Ma0eksaY': 4, 'aCcdDB_Y13g': 60, 'JaZNYM3zAP0': 6,
+  'hhq86gJvrvo': 10, 'gKA5LBy7WAI': 5,
+};
+
 // Build a YouTube embed URL for a video id. autoplay → muted looping ambient demo.
+// Starts at VIDEO_START[video] when known.
 function stretchEmbedSrc(video, { autoplay = false } = {}) {
   const params = ['rel=0', 'modestbranding=1', 'playsinline=1'];
+  const start = VIDEO_START[video];
+  if (start > 0) params.push(`start=${start}`);
   if (autoplay) params.push('autoplay=1', 'mute=1', 'loop=1', `playlist=${video}`);
   return `https://www.youtube-nocookie.com/embed/${video}?${params.join('&')}`;
 }
