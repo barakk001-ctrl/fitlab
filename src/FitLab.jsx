@@ -3011,19 +3011,29 @@ function StretchPicker({
 // ------------------------------------------------------------
 
 function StretchVideo({ video, title, autoplay = false, lazy = false, maxWidth }) {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setLoaded(false); }, [video]);
   if (!video) return null;
   return (
     <div style={{
       position: 'relative', width: '100%', maxWidth: maxWidth || '100%',
       aspectRatio: '16 / 9', borderRadius: '8px', overflow: 'hidden', background: '#000',
     }}>
+      {/* Instant poster — shows the move immediately while the player boots */}
+      <img
+        src={`https://i.ytimg.com/vi/${video}/hqdefault.jpg`}
+        alt={title || ''}
+        aria-hidden="true"
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 0 : 1, transition: 'opacity .4s ease' }}
+      />
       <iframe
         src={stretchEmbedSrc(video, { autoplay })}
         title={title || 'Stretch demonstration'}
         loading={lazy ? 'lazy' : 'eager'}
+        onLoad={() => setLoaded(true)}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, opacity: loaded ? 1 : 0, transition: 'opacity .4s ease' }}
       />
     </div>
   );
