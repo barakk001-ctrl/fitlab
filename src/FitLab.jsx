@@ -323,6 +323,7 @@ const STRINGS = {
     ws_rest: 'Rest',
     ws_resting: 'Rest',
     ws_start_timer: 'Timer',
+    ws_phone_timer: 'Phone timer',
     ws_skip_rest: 'Skip rest',
     ws_finish: 'Finish',
     ws_back: 'Back',
@@ -616,6 +617,7 @@ const STRINGS = {
     ws_rest: 'מנוחה',
     ws_resting: 'מנוחה',
     ws_start_timer: 'טיימר',
+    ws_phone_timer: 'טיימר בטלפון',
     ws_skip_rest: 'דלג על המנוחה',
     ws_finish: 'סיום',
     ws_back: 'חזרה',
@@ -844,6 +846,21 @@ const todayISO = () => {
 };
 
 // Web Audio beep for the rest timer
+// True on iPhone/iPad (incl. iPadOS reporting as Mac with touch).
+const IS_IOS = typeof navigator !== 'undefined' &&
+  (/iP(ad|hone|od)/.test(navigator.userAgent) ||
+   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+// Hand a duration (seconds) off to the iOS Clock via a one-time "FitLab Timer"
+// Shortcut — a real system timer that shows in the Dynamic Island / lock screen
+// and alerts even in silent mode.
+function startPhoneTimer(seconds) {
+  try {
+    window.location.href =
+      `shortcuts://run-shortcut?name=${encodeURIComponent('FitLab Timer')}&input=text&text=${seconds}`;
+  } catch {}
+}
+
 function playBeep(durationMs = 200, frequency = 800) {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -3912,6 +3929,14 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
                 style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
                 <Timer size={13} strokeWidth={2} /> {t('ws_rest', lang)} {restDuration}s
               </button>
+              {IS_IOS && (
+                <button onClick={() => startPhoneTimer(restDuration)}
+                  title="Starts the iPhone Clock timer (shows in Dynamic Island; alerts in silent mode). Needs the one-time 'FitLab Timer' shortcut."
+                  className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+                  style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px' }}>
+                  <Clock size={13} strokeWidth={2} /> {t('ws_phone_timer', lang)}
+                </button>
+              )}
               <button onClick={next}
                 className="f-mono uppercase tracking-[0.2em] px-7 py-3.5 text-xs flex items-center gap-2"
                 style={{ background: PALETTE.sage, color: PALETTE.ink, border: `1px solid ${PALETTE.sage}`, borderRadius: '999px', minWidth: 150, justifyContent: 'center' }}>
