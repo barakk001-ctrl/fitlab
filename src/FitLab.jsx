@@ -853,11 +853,14 @@ const IS_IOS = typeof navigator !== 'undefined' &&
 
 // Hand a duration (seconds) off to the iOS Clock via a one-time "FitLab Timer"
 // Shortcut — a real system timer that shows in the Dynamic Island / lock screen
-// and alerts even in silent mode.
+// and alerts even in silent mode. Uses x-callback so iOS bounces straight back
+// to FitLab after starting the timer instead of leaving you in Shortcuts.
 function startPhoneTimer(seconds) {
   try {
+    const back = encodeURIComponent(window.location.href);
     window.location.href =
-      `shortcuts://run-shortcut?name=${encodeURIComponent('FitLab Timer')}&input=text&text=${seconds}`;
+      `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent('FitLab Timer')}` +
+      `&input=text&text=${seconds}&x-success=${back}&x-cancel=${back}&x-error=${back}`;
   } catch {}
 }
 
