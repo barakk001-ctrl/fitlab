@@ -1951,7 +1951,7 @@ const VIDEO_START = {
   'Pbmj6xPo-Hw': 2, '94AXT7D3bKY': 16, 'dQqApCGd5Ss': 11, 'I34ysEkPK7w': 11,
   'vl5nUdE9mWM': 19, 'YyvSfVjQeL0': 54, '8e-xsVYFCVA': 44, '2tFpdTfIbKw': 2,
   'qTiqOyqQGs8': 11, '7p-Ma0eksaY': 4, 'aCcdDB_Y13g': 60, 'JaZNYM3zAP0': 6,
-  'hhq86gJvrvo': 10, 'gKA5LBy7WAI': 5,
+  'hhq86gJvrvo': 10, 'gKA5LBy7WAI': 5, 'jGR2LTqGI2Y': 16, '9ZknEYboBOQ': 7,
 };
 
 // Build a YouTube embed URL for a video id. autoplay → muted looping ambient demo.
