@@ -862,6 +862,12 @@ function playBeep(durationMs = 200, frequency = 800) {
   } catch (e) { /* ignore */ }
 }
 
+// Vibrate the phone (where supported) — used so timer endings are felt even
+// if the screen is off / you've looked away.
+function buzz(pattern = [120, 60, 120]) {
+  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern); } catch {}
+}
+
 // ------------------------------------------------------------
 // Static data — age / goals / splits
 // ------------------------------------------------------------
@@ -3644,6 +3650,10 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const [workLeft, setWorkLeft] = useState(0);
   const [workTotal, setWorkTotal] = useState(0);
   const [countIn, setCountIn] = useState(0);
+  // Absolute deadlines (wall-clock ms) so timers stay correct across screen-lock
+  // / app-switch — when you return, remaining is recomputed from real time.
+  const restEndRef = useRef(0);
+  const workEndRef = useRef(0);
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
   useWakeLock(!finished); // keep the screen on during the session
@@ -3654,34 +3664,46 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const isLast = stepIdx >= steps.length - 1;
   const timedSec = step ? parseTimedSeconds(step.target) : null;
 
+  // Rest countdown — driven by an absolute deadline; recomputes on return.
   useEffect(() => {
     if (!resting) return;
-    const id = setTimeout(() => {
-      setRestLeft((s) => {
-        if (s <= 1) { playBeep(220, 760); return 0; }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [resting, restLeft]);
+    let ended = false;
+    const tick = () => {
+      const left = Math.max(0, Math.round((restEndRef.current - Date.now()) / 1000));
+      if (left <= 0) { if (!ended) { ended = true; playBeep(220, 760); buzz(); } setRestLeft(0); }
+      else setRestLeft(left);
+    };
+    const id = setInterval(tick, 500);
+    const onVis = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [resting]);
 
-  // Count-in 3-2-1, then begin the work countdown.
+  // Count-in 3-2-1, then arm the work deadline.
   useEffect(() => {
     if (countIn <= 0) return;
     const id = setTimeout(() => {
-      if (countIn === 1) { setCountIn(0); setWorkLeft(workTotal); playBeep(260, 880); }
+      if (countIn === 1) { setCountIn(0); workEndRef.current = Date.now() + workTotal * 1000; setWorkLeft(workTotal); playBeep(260, 880); }
       else { setCountIn((c) => c - 1); playBeep(110, 640); }
     }, 1000);
     return () => clearTimeout(id);
   }, [countIn, workTotal]);
 
+  // Work countdown (timed sets) — absolute deadline; recomputes on return.
+  const workActive = workLeft > 0;
   useEffect(() => {
-    if (workLeft <= 0) return;
-    const id = setTimeout(() => {
-      setWorkLeft((s) => { if (s <= 1) { playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); return 0; } return s - 1; });
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [workLeft]);
+    if (!workActive) return;
+    let ended = false;
+    const tick = () => {
+      const left = Math.max(0, Math.round((workEndRef.current - Date.now()) / 1000));
+      if (left <= 0) { if (!ended) { ended = true; playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]); } setWorkLeft(0); }
+      else setWorkLeft(left);
+    };
+    const id = setInterval(tick, 500);
+    const onVis = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [workActive]);
 
   const stopTimers = () => { setRestLeft(0); setWorkLeft(0); setCountIn(0); };
   const next = () => {
@@ -3694,8 +3716,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     }
   };
   const prev = () => { stopTimers(); setStepIdx((i) => Math.max(0, i - 1)); };
-  const startRest = () => setRestLeft(restDuration);
-  const setRest = (v) => { setRestDuration(v); if (resting) setRestLeft(v); };
+  const startRest = () => { restEndRef.current = Date.now() + restDuration * 1000; setRestLeft(restDuration); };
+  const setRest = (v) => { setRestDuration(v); if (resting) { restEndRef.current = Date.now() + v * 1000; setRestLeft(v); } };
   const startWork = () => { if (timedSec) { setWorkTotal(timedSec); setCountIn(3); } };
   const restart = () => { setFinished(false); setStepIdx(0); stopTimers(); };
 
