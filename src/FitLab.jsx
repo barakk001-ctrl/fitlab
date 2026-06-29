@@ -3324,6 +3324,33 @@ function buildPhases(items, lang) {
   return phases;
 }
 
+// Keep the screen awake while `active` (e.g. during a guided session) so the
+// phone doesn't auto-lock mid-workout. Uses the Screen Wake Lock API
+// (iOS 16.4+ Safari/PWA, Android Chrome); a no-op where unsupported. Re-acquires
+// the lock when returning to the tab, since the OS drops it when backgrounded.
+function useWakeLock(active) {
+  useEffect(() => {
+    if (!active || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    let sentinel = null;
+    let cancelled = false;
+    const acquire = async () => {
+      try {
+        sentinel = await navigator.wakeLock.request('screen');
+      } catch { /* denied or not allowed right now */ }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !cancelled) acquire();
+    };
+    acquire();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      try { sentinel && sentinel.release(); } catch {}
+    };
+  }, [active]);
+}
+
 function GuidedPlayer({ items, lang, onClose, onComplete }) {
   const phases = useMemo(() => buildPhases(items, lang), [items, lang]);
 
@@ -3338,6 +3365,7 @@ function GuidedPlayer({ items, lang, onClose, onComplete }) {
   const [finished, setFinished] = useState(false);
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
+  useWakeLock(!finished); // keep the screen on during the session
 
   const currentPhase = phases[phaseIdx] || null;
   // Waiting on the user to begin this stretch (first side not yet started).
@@ -3618,6 +3646,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const [countIn, setCountIn] = useState(0);
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
+  useWakeLock(!finished); // keep the screen on during the session
 
   const resting = restLeft > 0;
   const working = countIn > 0 || workLeft > 0;
