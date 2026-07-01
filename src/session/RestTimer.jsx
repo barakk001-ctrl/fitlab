@@ -1,5 +1,6 @@
 import { Pause, Play, RotateCcw, SkipForward, Timer, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useCountdown } from '../hooks/useCountdown.js';
 import { isRTL, t } from '../i18n.js';
 import { playBeep } from '../media.js';
 import { PALETTE } from '../theme.js';
@@ -7,10 +8,14 @@ function RestTimer({ exercise, lang, onClose }) {
   const baseRest = exercise?.restSeconds ?? 90;
   const initial = Math.min(120, Math.max(30, baseRest));
   const [duration, setDuration] = useState(initial);
-  const [secondsLeft, setSecondsLeft] = useState(initial);
-  const [paused, setPaused] = useState(false);
   const [done, setDone] = useState(false);
-  const playedRef = useRef(false);
+
+  const timer = useCountdown(() => {
+    setDone(true);
+    playBeep(220, 880);
+    setTimeout(() => playBeep(220, 880), 280);
+  });
+  const { secondsLeft, paused } = timer;
 
   // When a different exercise is opened, reset duration to that exercise's default
   useEffect(() => {
@@ -18,30 +23,14 @@ function RestTimer({ exercise, lang, onClose }) {
     setDuration(Math.min(120, Math.max(30, next)));
   }, [exercise?.id]);
 
-  // When duration changes (user moves slider, or new exercise), reset countdown
+  // When duration changes (user moves slider, or new exercise), restart the countdown
   useEffect(() => {
-    setSecondsLeft(duration);
-    setPaused(false);
     setDone(false);
-    playedRef.current = false;
+    timer.start(duration);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
 
-  useEffect(() => {
-    if (paused || done) return;
-    if (secondsLeft <= 0) {
-      if (!playedRef.current) {
-        playedRef.current = true;
-        playBeep(220, 880);
-        setTimeout(() => playBeep(220, 880), 280);
-      }
-      setDone(true);
-      return;
-    }
-    const id = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [secondsLeft, paused, done]);
-
-  const reset = () => { setSecondsLeft(duration); setPaused(false); setDone(false); playedRef.current = false; };
+  const reset = () => { setDone(false); timer.start(duration); };
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const display = `${minutes}:${String(Math.max(secs, 0)).padStart(2, '0')}`;
@@ -108,7 +97,7 @@ function RestTimer({ exercise, lang, onClose }) {
 
       <div className="flex items-center gap-2 flex-wrap">
         {!done ? (
-          <button onClick={() => setPaused(p => !p)}
+          <button onClick={() => (paused ? timer.resume() : timer.pause())}
             className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
             style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', cursor: 'pointer' }}>
             {paused ? <Play size={11} strokeWidth={2} /> : <Pause size={11} strokeWidth={2} />}

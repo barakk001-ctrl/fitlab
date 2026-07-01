@@ -1,6 +1,7 @@
 import { Check, Pause, Play, RefreshCw, RotateCcw, SkipForward, StretchHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { StretchVideo } from '../components/video.jsx';
+import { useCountdown } from '../hooks/useCountdown.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import { isRTL, t } from '../i18n.js';
 import { playBeep } from '../media.js';
@@ -31,24 +32,28 @@ function GuidedPlayer({ items, lang, onClose, onComplete }) {
   const isStretchStart = (idx) => idx === 0 || phases[idx].item.id !== phases[idx - 1].item.id;
 
   const [phaseIdx, setPhaseIdx] = useState(0);
-  const [secondsLeft, setSecondsLeft] = useState(() => phases[0]?.seconds ?? 0);
-  const [running, setRunning] = useState(false);
-  const [paused, setPaused] = useState(false);
   const [finished, setFinished] = useState(false);
+
+  // Wall-clock countdown: keeps correct time when the tab is backgrounded or
+  // the screen locks (chained 1s timeouts would stall there).
+  const timer = useCountdown(() => advance(true));
+  const paused = timer.paused;
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
   useWakeLock(!finished); // keep the screen on during the session
 
   const currentPhase = phases[phaseIdx] || null;
   // Waiting on the user to begin this stretch (first side not yet started).
-  const awaitingStart = !running && !finished;
+  const awaitingStart = !timer.running && !timer.paused && !finished;
+  // Before a phase starts, show its full duration in the ring.
+  const secondsLeft = awaitingStart || finished ? (currentPhase?.seconds ?? 0) : timer.secondsLeft;
 
-  // Enter a phase: reset its timer and auto-run only if it's a continuation (e.g. Side 2).
-  // secondsLeft is set together with phaseIdx so the ticking effect never sees a stale 0.
+  // Enter a phase: auto-run only if it's a continuation (e.g. Side 2);
+  // the first side of each stretch waits for a manual Start.
   const enterPhase = (idx) => {
     setPhaseIdx(idx);
-    setSecondsLeft(phases[idx].seconds);
-    setRunning(!isStretchStart(idx));
+    if (isStretchStart(idx)) timer.clear();
+    else timer.start(phases[idx].seconds);
   };
 
   const advance = (withBeep) => {
@@ -57,27 +62,18 @@ function GuidedPlayer({ items, lang, onClose, onComplete }) {
       enterPhase(phaseIdx + 1);
     } else {
       if (withBeep) { playBeep(300, 880); setTimeout(() => playBeep(300, 1040), 300); }
-      setRunning(false);
+      timer.clear();
       setFinished(true);
     }
   };
 
-  useEffect(() => {
-    if (!running || paused || finished) return;
-    if (secondsLeft <= 0) { advance(true); return; }
-    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [running, paused, finished, secondsLeft, phaseIdx]);
-
-  const start = () => { setPaused(false); setRunning(true); };
+  const start = () => timer.start(currentPhase?.seconds ?? 0);
   const skip = () => advance(false);
 
   const restart = () => {
     setFinished(false);
-    setPaused(false);
-    setRunning(false);
     setPhaseIdx(0);
-    setSecondsLeft(phases[0]?.seconds ?? 0);
+    timer.clear();
   };
 
   const progressPct = phases.length > 0
@@ -213,7 +209,7 @@ function GuidedPlayer({ items, lang, onClose, onComplete }) {
               <Play size={14} strokeWidth={2.5} /> {t('guided_start', lang)}
             </button>
           ) : (
-            <button onClick={() => setPaused(p => !p)}
+            <button onClick={() => (paused ? timer.resume() : timer.pause())}
               className="f-mono uppercase tracking-[0.2em] px-6 py-3 text-xs flex items-center gap-2"
               style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 120, justifyContent: 'center' }}>
               {paused ? <Play size={13} strokeWidth={2} /> : <Pause size={13} strokeWidth={2} />}

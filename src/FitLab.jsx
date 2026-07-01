@@ -25,12 +25,14 @@ import { StretchPlanView } from './views/StretchPlanView.jsx';
 export default function FitLab() {
   const [lang, setLang] = useState('en');
   const [theme, setTheme] = useState(readStoredTheme);
-  applyTheme(theme); // keep the shared PALETTE in sync on every render
-  const toggleTheme = () => setTheme((tprev) => {
-    const next = tprev === 'dark' ? 'light' : 'dark';
+  // PALETTE is applied at module load (theme.js) and re-applied here before the
+  // state update triggers a re-render — never during the render itself.
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
     try { window.localStorage.setItem('fitlab:theme', next); } catch {}
-    return next;
-  });
+    applyTheme(next);
+    setTheme(next);
+  };
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', theme === 'dark' ? DARK.cream : LIGHT.cream);
@@ -204,6 +206,21 @@ export default function FitLab() {
     }
     // workout
     const i = plan.inputs || {};
+    // Same rules as statsValid — a legacy/incomplete plan opens in the picker
+    // so the user can fill the missing stats instead of hitting a blank plan.
+    const inputsComplete = (() => {
+      if (!i.age || !(i.goals?.length) || !i.split) return false;
+      const w = parseFloat(i.weight);
+      const tw = parseFloat(i.targetWeight);
+      if (isNaN(w) || isNaN(tw) || w <= 0 || tw <= 0) return false;
+      if ((i.units ?? 'metric') === 'metric') {
+        const h = parseFloat(i.heightCm);
+        return !isNaN(h) && h >= 120 && h <= 230;
+      }
+      const f = parseFloat(i.heightFt);
+      const inch = parseFloat(i.heightIn);
+      return !isNaN(f) && f >= 3 && f <= 8 && !isNaN(inch) && inch >= 0 && inch < 12;
+    })();
     setMode('workout');
     setAge(i.age ?? null);
     setGoals(i.goals ?? []);
@@ -220,7 +237,7 @@ export default function FitLab() {
     setSwaps(p.swaps ?? {});
     setCompletions(deserializeCompletions(p.completions));
     setCurrentPlanId(plan.id);
-    setView('plan');
+    setView(inputsComplete ? 'plan' : 'picker');
   };
 
   // Auto-persist progress when editing a saved WORKOUT plan
@@ -475,7 +492,8 @@ export default function FitLab() {
     const deltaDisplay = (delta > 0 ? '+' : '') + delta.toFixed(0);
 
     return { weightDisplay, targetDisplay, deltaDisplay, bmi, dailyCals, weeksToGoal, isMaintenance, diet, weightKg, targetKg };
-  }, [statsValid, age, goals, split, units, heightCm, heightFt, heightIn, weight, targetWeight, sex]);
+    // `theme` is a real dependency: bmi.color is read from the theme-dependent PALETTE.
+  }, [statsValid, age, goals, split, units, heightCm, heightFt, heightIn, weight, targetWeight, sex, theme]);
 
   const week = useMemo(() => {
     if (!age || goals.length === 0 || !split) return null;
@@ -567,7 +585,9 @@ export default function FitLab() {
           onLoadPlan={handleLoadPlan}
           onDeletePlan={handleDeletePlan}
         />
-      ) : view === 'picker' ? (
+      ) : (view === 'picker' || !computed || !week) ? (
+        // Falling back to the picker when computed/week are null protects against
+        // saved plans with incomplete inputs (handleLoadPlan jumps straight to 'plan').
         <PickerView
           lang={lang} setLang={setLang}
           mode={mode} setMode={handleSetMode}
