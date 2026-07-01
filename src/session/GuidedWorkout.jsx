@@ -74,10 +74,11 @@ function QuickLog({ name, unit, lang, onLog }) {
 }
 
 // Per-set logger for rep-based sets: reps done + weight used (blank/0 = bodyweight).
-function SetLog({ name, setNum, target, weightUnit, lang, onLogSet }) {
-  const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState('');
-  const [saved, setSaved] = useState(false);
+// When the set was already logged today, its values prefill and Save replaces them.
+function SetLog({ name, setNum, target, weightUnit, lang, onLogSet, initialReps = '', initialWeight = '' }) {
+  const [reps, setReps] = useState(initialReps);
+  const [weight, setWeight] = useState(initialWeight);
+  const [saved, setSaved] = useState(initialReps !== '');
   const inputStyle = {
     width: 64, background: 'transparent', color: PALETTE.cream,
     border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', padding: '6px 10px',
@@ -87,19 +88,18 @@ function SetLog({ name, setNum, target, weightUnit, lang, onLogSet }) {
     if (isNaN(r) || r <= 0) return;
     const w = parseFloat(weight);
     onLogSet(name, setNum, r, isNaN(w) || w < 0 ? 0 : w);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1600);
+    setSaved(true); // stays ✓ until the values change again
   };
   return (
     <div className="flex items-center justify-center gap-2 flex-wrap mt-6" dir="ltr">
       <span className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ opacity: 0.5 }}>{t('log_set', lang)}</span>
-      <input type="number" inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)}
+      <input type="number" inputMode="numeric" value={reps} onChange={(e) => { setReps(e.target.value); setSaved(false); }}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
         placeholder={target} aria-label={t('unit_reps', lang)}
         className="f-mono text-sm text-center" style={inputStyle} />
       <span className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{t('unit_reps', lang)}</span>
       <span className="f-mono text-[10px]" style={{ opacity: 0.4 }}>×</span>
-      <input type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)}
+      <input type="number" inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setSaved(false); }}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
         placeholder="0" aria-label={t('ws_weight', lang)}
         className="f-mono text-sm text-center" style={inputStyle} />
@@ -113,7 +113,8 @@ function SetLog({ name, setNum, target, weightUnit, lang, onLogSet }) {
   );
 }
 
-function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog, onLogSet, weightUnit = 'kg' }) {
+function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog, onLogSet, loggedSets = [], weightUnit = 'kg' }) {
+  const kgToDisplay = (kg) => (weightUnit === 'lb' ? Math.round(kg * 2.20462 * 10) / 10 : kg);
   const steps = useMemo(() => buildWorkoutSteps(exercises), [exercises]);
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -345,10 +346,15 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
             )}
 
             {/* Rep-based sets get per-set reps × weight logging; timed sets keep the single quick-log. */}
-            {onLogSet && !timedSec ? (
-              <SetLog key={`${step.ex.id}-${step.setNum}`} name={step.ex.name} setNum={step.setNum}
-                target={step.target} weightUnit={weightUnit} lang={lang} onLogSet={onLogSet} />
-            ) : onLog ? (
+            {onLogSet && !timedSec ? (() => {
+              const prevLogged = loggedSets.find((s) => s.name === step.ex.name && s.set === step.setNum);
+              return (
+                <SetLog key={`${step.ex.id}-${step.setNum}`} name={step.ex.name} setNum={step.setNum}
+                  target={step.target} weightUnit={weightUnit} lang={lang} onLogSet={onLogSet}
+                  initialReps={prevLogged ? String(prevLogged.reps) : ''}
+                  initialWeight={prevLogged && prevLogged.weightKg > 0 ? String(kgToDisplay(prevLogged.weightKg)) : ''} />
+              );
+            })() : onLog ? (
               <QuickLog key={step.ex.id} name={step.ex.name} unit={logUnitForScheme(step.target)} lang={lang} onLog={onLog} />
             ) : null}
 

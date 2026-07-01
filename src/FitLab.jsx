@@ -438,11 +438,15 @@ export default function FitLab() {
     });
   };
   // One entry per logged set. Weight arrives in the display unit; stored as kg
-  // (0 = bodyweight). Reps also feed the legacy rep-PR log so records keep accruing.
+  // (0 = bodyweight). Re-logging the same (date, name, set) replaces the entry,
+  // so saving again edits a set instead of duplicating it. Reps also feed the
+  // legacy rep-PR log so records keep accruing.
   const recordSet = (name, setNum, reps, weightVal) => {
     const weightKg = units === 'metric' ? weightVal : lbToKg(weightVal);
+    const date = todayISO();
     setSetLog((prev) => {
-      const next = [...prev, { date: todayISO(), name, set: setNum, reps, weightKg: Math.round(weightKg * 100) / 100 }];
+      const next = prev.filter((s) => !(s.date === date && s.name === name && s.set === setNum));
+      next.push({ date, name, set: setNum, reps, weightKg: Math.round(weightKg * 100) / 100 });
       persistSetLog(next);
       return next;
     });
@@ -693,6 +697,7 @@ export default function FitLab() {
           onComplete={() => recordActivity(workoutSession.kind || 'workout')}
           onLog={recordPerf}
           onLogSet={recordSet}
+          loggedSets={setLog.filter((s) => s.date === todayISO())}
           weightUnit={units === 'metric' ? 'kg' : 'lb'}
         />
       )}

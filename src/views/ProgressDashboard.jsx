@@ -1,4 +1,4 @@
-import { Activity, Bookmark, CheckCircle2, Flame, RotateCcw, Save, TrendingUp } from 'lucide-react';
+import { Activity, Bookmark, CheckCircle2, ChevronDown, ChevronUp, Flame, RotateCcw, Save, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BodyweightSection } from '../components/Bodyweight.jsx';
 import { MastHead, Pill, StatCard } from '../components/shared.jsx';
@@ -117,6 +117,32 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
     const w = units === 'metric' ? s.weightKg : s.weightKg * 2.20462;
     return `${Math.round(w * 10) / 10} ${units === 'metric' ? 'kg' : 'lb'} × ${s.reps}`;
   };
+  const setDisplay = (s) => (s.weightKg > 0 ? liftDisplay(s) : `${s.reps} ${t('unit_reps', lang)}`);
+
+  // Session history: logged sets grouped by day, newest first.
+  const [openDay, setOpenDay] = useState(null);
+  const history = useMemo(() => {
+    const byDate = {};
+    setLog.forEach((s) => {
+      if (!byDate[s.date]) byDate[s.date] = {};
+      if (!byDate[s.date][s.name]) byDate[s.date][s.name] = [];
+      byDate[s.date][s.name].push(s);
+    });
+    return Object.entries(byDate)
+      .map(([date, byName]) => ({
+        date,
+        exercises: Object.entries(byName).map(([name, sets]) => ({ name, sets: [...sets].sort((a, b) => a.set - b.set) })),
+        totalSets: Object.values(byName).reduce((n, arr) => n + arr.length, 0),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [setLog]);
+  const historyDates = useMemo(() => new Set(history.map((h) => h.date)), [history]);
+  const fmtDay = (dISO) => new Date(dISO + 'T00:00:00')
+    .toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const jumpToDay = (dISO) => {
+    setOpenDay(dISO);
+    document.getElementById('session-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Activity heatmap — last ~12 weeks aligned to weeks.
   const weeks = useMemo(() => {
@@ -176,13 +202,17 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
                 <div key={wi} className="flex flex-col gap-1">
                   {wk.map((d, di) => {
                     const future = d > today;
-                    const active = activityDates.has(iso(d));
+                    const dISO = iso(d);
+                    const active = activityDates.has(dISO);
+                    const clickable = historyDates.has(dISO);
                     return (
-                      <div key={di} title={iso(d)}
+                      <div key={di} title={dISO}
+                        onClick={clickable ? () => jumpToDay(dISO) : undefined}
                         style={{
                           width: 13, height: 13, borderRadius: 3,
                           background: future ? 'transparent' : (active ? PALETTE.sage : 'rgba(27,27,25,0.08)'),
-                          border: future ? 'none' : `1px solid ${active ? PALETTE.sage : 'rgba(27,27,25,0.12)'}`,
+                          border: future ? 'none' : `1px solid ${openDay === dISO && clickable ? PALETTE.rust : (active ? PALETTE.sage : 'rgba(27,27,25,0.12)')}`,
+                          cursor: clickable ? 'pointer' : 'default',
                         }} />
                     );
                   })}
@@ -190,6 +220,49 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
               ))}
             </div>
           </section>
+
+          {/* Session history — expandable per-day log of every set */}
+          {history.length > 0 && (
+            <section id="session-history" className="px-6 md:px-12 pt-8 pb-2">
+              <h2 className="f-display font-bold text-2xl md:text-3xl mb-2" style={{ color: PALETTE.ink }}>{t('prog_history', lang)}</h2>
+              <p className="f-body text-sm mb-5" style={{ opacity: 0.7 }}>{t('prog_history_sub', lang)}</p>
+              <div className="flex flex-col gap-2">
+                {history.map((day) => {
+                  const open = openDay === day.date;
+                  return (
+                    <div key={day.date} style={{ background: PALETTE.paper, border: `1px solid ${open ? PALETTE.rust : PALETTE.ink}`, borderRadius: '6px' }}>
+                      <button onClick={() => setOpenDay(open ? null : day.date)}
+                        className="w-full flex items-center justify-between gap-3 p-4 text-start"
+                        aria-expanded={open} style={{ color: PALETTE.ink }}>
+                        <span className="f-display font-semibold">{fmtDay(day.date)}</span>
+                        <span className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ opacity: 0.65 }}>
+                          {t('hist_summary', lang, { a: day.exercises.length, b: day.totalSets })}
+                          {open ? <ChevronUp size={13} strokeWidth={2} /> : <ChevronDown size={13} strokeWidth={2} />}
+                        </span>
+                      </button>
+                      {open && (
+                        <div className="px-4 pb-4 flex flex-col gap-3">
+                          {day.exercises.map((ex) => (
+                            <div key={ex.name}>
+                              <div className="f-display font-semibold text-sm mb-1.5" style={{ color: PALETTE.ink }} dir="ltr">{ex.name}</div>
+                              <div className="flex flex-wrap gap-1.5" dir="ltr">
+                                {ex.sets.map((s) => (
+                                  <span key={s.set} className="f-mono text-[11px] px-2.5 py-1"
+                                    style={{ border: `1px solid ${PALETTE.ink}`, borderRadius: '999px', color: s.weightKg > 0 ? PALETTE.forest : PALETTE.ink, opacity: 0.9 }}>
+                                    {setDisplay(s)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Bodyweight trend (reuses the existing section) */}
           <BodyweightSection
