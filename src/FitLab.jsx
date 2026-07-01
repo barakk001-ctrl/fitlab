@@ -3128,6 +3128,29 @@ function LoopingPlayer({ video, title, maxWidth }) {
     return () => { cancelled = true; try { playerRef.current && playerRef.current.destroy(); } catch {} };
   }, [video, start]);
 
+  // Recover playback after returning from the background — iOS suspends the
+  // player when you switch apps, and it otherwise stays paused/stuck.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      const p = playerRef.current;
+      if (!p || !p.getPlayerState) return;
+      let st = null;
+      try { st = p.getPlayerState(); } catch {}
+      if (st === 1 || st === 3) return; // already playing / buffering
+      try { p.mute(); p.playVideo(); } catch {}
+      // If a gentle nudge didn't take, hard-reload the segment.
+      setTimeout(() => {
+        try {
+          const s2 = p.getPlayerState ? p.getPlayerState() : null;
+          if (s2 !== 1 && s2 !== 3) { p.loadVideoById({ videoId: video, startSeconds: start }); p.mute(); p.playVideo(); }
+        } catch {}
+      }, 500);
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [video, start]);
+
   return (
     <div className="vid-embed" style={frameWrap(maxWidth)}>
       <img src={videoPoster(video)} alt={title || ''} aria-hidden="true" style={posterStyle(loaded)} />
