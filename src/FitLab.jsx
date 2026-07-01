@@ -224,6 +224,9 @@ const STRINGS = {
     ch_complete_sub: '30 days done. That’s a real habit — keep the momentum going.',
     ch_finished_badge: 'Finished',
     ch_safety: 'Bodyweight only · scale every move to your level · form over reps.',
+    ch_edit_day: 'Set current day',
+    ch_set: 'Set',
+    ch_cancel: 'Cancel',
 
     // Set logging
     log_result: 'Log result',
@@ -248,6 +251,20 @@ const STRINGS = {
     prog_empty_title: 'Nothing logged yet',
     prog_empty_sub: 'Do a guided workout, stretch session, or challenge day — your progress will build here.',
     prog_best: 'best',
+
+    // Backup & restore
+    backup_title: 'Backup & restore',
+    backup_sub: 'Your data lives only on this device. Back it up so you can restore it after reinstalling or on a new phone.',
+    backup_copy: 'Copy backup code',
+    backup_copied: 'Copied ✓',
+    backup_download: 'Download file',
+    backup_hint: 'Save this code somewhere safe — paste it into Notes, or email it to yourself.',
+    backup_restore_h: 'Restore from a backup',
+    backup_paste: 'Paste your backup code here…',
+    backup_restore_btn: 'Restore',
+    backup_restored: 'Restored — reloading…',
+    backup_error: 'That code isn’t valid.',
+    backup_warn: 'Restoring replaces the data currently on this device.',
 
     // Custom workout builder
     build_own: 'Build your own',
@@ -518,6 +535,9 @@ const STRINGS = {
     ch_complete_sub: '30 ימים הושלמו. זה הרגל אמיתי — שמרו על המומנטום.',
     ch_finished_badge: 'הושלם',
     ch_safety: 'משקל גוף בלבד · התאימו כל תרגיל לרמתכם · טכניקה לפני כמות.',
+    ch_edit_day: 'קבע יום נוכחי',
+    ch_set: 'קבע',
+    ch_cancel: 'ביטול',
 
     // Set logging
     log_result: 'תיעוד תוצאה',
@@ -542,6 +562,20 @@ const STRINGS = {
     prog_empty_title: 'עדיין לא תועד דבר',
     prog_empty_sub: 'בצעו אימון מודרך, מפגש מתיחות או יום אתגר — ההתקדמות תיבנה כאן.',
     prog_best: 'שיא',
+
+    // Backup & restore
+    backup_title: 'גיבוי ושחזור',
+    backup_sub: 'הנתונים נשמרים רק במכשיר הזה. גבו אותם כדי לשחזר אחרי התקנה מחדש או בטלפון חדש.',
+    backup_copy: 'העתק קוד גיבוי',
+    backup_copied: 'הועתק ✓',
+    backup_download: 'הורדת קובץ',
+    backup_hint: 'שמרו את הקוד במקום בטוח — הדביקו לפתקים או שלחו לעצמכם במייל.',
+    backup_restore_h: 'שחזור מגיבוי',
+    backup_paste: 'הדביקו כאן את קוד הגיבוי…',
+    backup_restore_btn: 'שחזר',
+    backup_restored: 'שוחזר — טוען מחדש…',
+    backup_error: 'הקוד אינו תקין.',
+    backup_warn: 'שחזור יחליף את הנתונים הקיימים במכשיר.',
 
     // Custom workout builder
     build_own: 'בנו אימון משלכם',
@@ -3991,7 +4025,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
 // 30-Day Calisthenics Challenge view
 // ------------------------------------------------------------
 
-function ChallengeView({ lang, setLang, mode, setMode, challenge, onStart, onToggleDay, onStartDay, onRestart }) {
+function ChallengeView({ lang, setLang, mode, setMode, challenge, onStart, onToggleDay, onStartDay, onRestart, onSetDay }) {
+  const [editDay, setEditDay] = useState(null); // number being edited, or null
   const started = !!challenge?.start;
   const rawDay = started ? challengeDayNumber(challenge.start) : 0;
   const currentDay = Math.min(Math.max(rawDay, 1), 30);
@@ -4064,12 +4099,40 @@ function ChallengeView({ lang, setLang, mode, setMode, challenge, onStart, onTog
               {t('ch_progress', lang, { done: doneCount, total: 30 })}
             </div>
           </div>
-          <button onClick={onRestart}
-            className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-4 py-2"
-            style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
-            <RotateCcw size={12} strokeWidth={2} /> {t('ch_restart', lang)}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setEditDay(currentDay)}
+              className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-4 py-2"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              <CalendarDays size={12} strokeWidth={2} /> {t('ch_edit_day', lang)}
+            </button>
+            <button onClick={onRestart}
+              className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-4 py-2"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              <RotateCcw size={12} strokeWidth={2} /> {t('ch_restart', lang)}
+            </button>
+          </div>
         </div>
+
+        {editDay !== null && (
+          <div className="mt-5 p-4 flex items-center gap-3 flex-wrap" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '8px' }}>
+            <span className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: PALETTE.rust }}>{t('ch_edit_day', lang)}</span>
+            <div className="flex items-center gap-2" dir="ltr">
+              <button onClick={() => setEditDay((d) => Math.max(1, d - 1))} className="flex items-center justify-center" style={{ width: 30, height: 30, borderRadius: '999px', border: `1px solid ${PALETTE.ink}`, color: PALETTE.ink }}>–</button>
+              <span className="f-display font-bold text-center" style={{ minWidth: 64, color: PALETTE.ink }}>{lang === 'he' ? 'יום' : 'Day'} {editDay}</span>
+              <button onClick={() => setEditDay((d) => Math.min(30, d + 1))} className="flex items-center justify-center" style={{ width: 30, height: 30, borderRadius: '999px', border: `1px solid ${PALETTE.ink}`, color: PALETTE.ink }}>+</button>
+            </div>
+            <button onClick={() => { onSetDay(editDay); setEditDay(null); }}
+              className="f-mono text-[10px] uppercase tracking-[0.2em] px-5 py-2.5 flex items-center gap-1.5"
+              style={{ background: PALETTE.ink, color: PALETTE.cream, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              <Check size={12} strokeWidth={2.5} /> {t('ch_set', lang)}
+            </button>
+            <button onClick={() => setEditDay(null)}
+              className="f-mono text-[10px] uppercase tracking-[0.2em] px-4 py-2.5"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              {t('ch_cancel', lang)}
+            </button>
+          </div>
+        )}
 
         {finishedAll && (
           <div className="mt-6 p-5 flex items-center gap-3" style={{ background: PALETTE.forest, color: PALETTE.cream, borderRadius: '6px' }}>
@@ -4200,7 +4263,81 @@ function StatCard({ icon: Icon, value, label, accent }) {
   );
 }
 
-function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog, bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry, challenge }) {
+function BackupRestore({ onExport, onImport, lang }) {
+  const [code, setCode] = useState('');
+  const [importText, setImportText] = useState('');
+  const [status, setStatus] = useState(''); // '' | 'copied' | 'restored' | 'error'
+
+  const revealAndCopy = async () => {
+    const c = onExport();
+    setCode(c);
+    try { await navigator.clipboard.writeText(c); setStatus('copied'); setTimeout(() => setStatus(''), 1800); } catch { setStatus(''); }
+  };
+  const download = () => {
+    const c = code || onExport(); setCode(c);
+    try {
+      const blob = new Blob([c], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'fitlab-backup.txt'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {}
+  };
+  const restore = async () => {
+    if (!importText.trim()) return;
+    const ok = await onImport(importText.trim());
+    if (ok) { setStatus('restored'); setTimeout(() => window.location.reload(), 900); }
+    else setStatus('error');
+  };
+
+  const inputStyle = { width: '100%', background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '8px', padding: '10px', fontSize: 12 };
+
+  return (
+    <section className="px-6 md:px-12 pb-16">
+      <h2 className="f-display font-bold text-2xl md:text-3xl flex items-center gap-3" style={{ color: PALETTE.ink }}>
+        <Save size={20} strokeWidth={1.7} color={PALETTE.rust} /> {t('backup_title', lang)}
+      </h2>
+      <p className="f-body text-sm mt-2 mb-5 max-w-2xl" style={{ opacity: 0.75 }}>{t('backup_sub', lang)}</p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Export */}
+        <div className="p-5" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '8px' }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={revealAndCopy}
+              className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+              style={{ background: PALETTE.ink, color: PALETTE.cream, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              <Bookmark size={12} strokeWidth={2} /> {status === 'copied' ? t('backup_copied', lang) : t('backup_copy', lang)}
+            </button>
+            <button onClick={download}
+              className="f-mono uppercase tracking-[0.2em] px-4 py-3 text-xs flex items-center gap-2"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              {t('backup_download', lang)}
+            </button>
+          </div>
+          {code && <textarea readOnly value={code} onFocus={(e) => e.target.select()} rows={4} className="f-mono mt-3" style={inputStyle} dir="ltr" />}
+          <p className="f-mono text-[10px] uppercase tracking-[0.15em] mt-3" style={{ opacity: 0.55 }}>{t('backup_hint', lang)}</p>
+        </div>
+
+        {/* Import */}
+        <div className="p-5" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '8px' }}>
+          <div className="f-mono text-[10px] uppercase tracking-[0.25em] mb-3" style={{ color: PALETTE.rust }}>{t('backup_restore_h', lang)}</div>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={t('backup_paste', lang)} rows={4} className="f-mono" style={inputStyle} dir="ltr" />
+          <div className="flex items-center gap-3 mt-3 flex-wrap">
+            <button onClick={restore} disabled={!importText.trim()}
+              className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+              style={{ background: PALETTE.rust, color: PALETTE.cream, border: `1px solid ${PALETTE.rust}`, borderRadius: '999px', opacity: importText.trim() ? 1 : 0.4, cursor: importText.trim() ? 'pointer' : 'not-allowed' }}>
+              <RotateCcw size={12} strokeWidth={2} /> {t('backup_restore_btn', lang)}
+            </button>
+            {status === 'restored' && <span className="f-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: PALETTE.forest }}>{t('backup_restored', lang)}</span>}
+            {status === 'error' && <span className="f-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: PALETTE.rust }}>{t('backup_error', lang)}</span>}
+          </div>
+          <p className="f-mono text-[10px] uppercase tracking-[0.15em] mt-3" style={{ opacity: 0.55 }}>{t('backup_warn', lang)}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog, bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry, challenge, onExport, onImport }) {
   const dayMs = 86400000;
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const now = new Date();
@@ -4254,12 +4391,15 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
       </section>
 
       {!hasAny ? (
-        <section className="px-6 md:px-12 pb-16">
-          <div className="p-8 text-center" style={{ background: PALETTE.paper, border: `1px dashed ${PALETTE.ink}`, borderRadius: '6px' }}>
-            <div className="f-display font-bold" style={{ fontSize: '22px', color: PALETTE.ink }}>{t('prog_empty_title', lang)}</div>
-            <p className="f-body text-sm mt-2" style={{ opacity: 0.7 }}>{t('prog_empty_sub', lang)}</p>
-          </div>
-        </section>
+        <>
+          <section className="px-6 md:px-12 pb-6">
+            <div className="p-8 text-center" style={{ background: PALETTE.paper, border: `1px dashed ${PALETTE.ink}`, borderRadius: '6px' }}>
+              <div className="f-display font-bold" style={{ fontSize: '22px', color: PALETTE.ink }}>{t('prog_empty_title', lang)}</div>
+              <p className="f-body text-sm mt-2" style={{ opacity: 0.7 }}>{t('prog_empty_sub', lang)}</p>
+            </div>
+          </section>
+          <BackupRestore onExport={onExport} onImport={onImport} lang={lang} />
+        </>
       ) : (
         <>
           <section className="px-6 md:px-12 pb-2">
@@ -4328,6 +4468,8 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
               </div>
             )}
           </section>
+
+          <BackupRestore onExport={onExport} onImport={onImport} lang={lang} />
         </>
       )}
     </div>
@@ -6040,6 +6182,17 @@ export default function FitLab() {
     setChallenge(data);
     persistChallenge(data);
   };
+  // Reposition the challenge so that TODAY is the chosen day (shifts the start date).
+  const handleSetChallengeDay = (day) => {
+    const d = Math.min(Math.max(parseInt(day, 10) || 1, 1), 30);
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (d - 1));
+    const startISO = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+    const base = challenge || { start: startISO, done: [] };
+    const next = { ...base, start: startISO };
+    setChallenge(next);
+    persistChallenge(next);
+  };
   const handleStartChallengeDay = (dayData) => {
     setWorkoutSession({
       exercises: challengeSessionExercises(dayData.exercises),
@@ -6065,6 +6218,25 @@ export default function FitLab() {
       persistPerfLog(next);
       return next;
     });
+  };
+
+  // ---- Backup / restore (device-local data → portable code) ----
+  const buildBackupCode = () => {
+    const data = { v: 1, plans: savedPlans, bodyweight: bodyweightLog, challenge, activity: activityLog, perf: perfLog };
+    try { return btoa(unescape(encodeURIComponent(JSON.stringify(data)))); } catch { return ''; }
+  };
+  const applyBackupCode = async (code) => {
+    try {
+      const data = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+      if (!data || typeof data !== 'object') return false;
+      if (Array.isArray(data.plans)) { await persistAllPlans(data.plans); setSavedPlans(data.plans); }
+      if (Array.isArray(data.bodyweight)) { await persistBodyweightLog(data.bodyweight); setBodyweightLog(data.bodyweight); }
+      if (data.challenge && data.challenge.start) { await persistChallenge(data.challenge); setChallenge(data.challenge); }
+      else if (data.challenge === null) { await persistChallenge(null); }
+      if (Array.isArray(data.activity)) { await persistActivityLog(data.activity); setActivityLog(data.activity); }
+      if (Array.isArray(data.perf)) { await persistPerfLog(data.perf); setPerfLog(data.perf); }
+      return true;
+    } catch { return false; }
   };
 
   const statsValid = useMemo(() => {
@@ -6142,6 +6314,8 @@ export default function FitLab() {
           onOpenWeightLog={() => setLogModalOpen(true)}
           onDeleteWeightEntry={handleDeleteWeightEntry}
           challenge={challenge}
+          onExport={buildBackupCode}
+          onImport={applyBackupCode}
         />
       ) : mode === 'challenge' ? (
         <ChallengeView
@@ -6151,6 +6325,7 @@ export default function FitLab() {
           onStart={handleStartChallenge}
           onToggleDay={handleToggleChallengeDay}
           onStartDay={handleStartChallengeDay}
+          onSetDay={handleSetChallengeDay}
           onRestart={handleRestartChallenge}
         />
       ) : mode === 'stretch' ? (
