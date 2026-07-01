@@ -73,7 +73,47 @@ function QuickLog({ name, unit, lang, onLog }) {
   );
 }
 
-function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog }) {
+// Per-set logger for rep-based sets: reps done + weight used (blank/0 = bodyweight).
+function SetLog({ name, setNum, target, weightUnit, lang, onLogSet }) {
+  const [reps, setReps] = useState('');
+  const [weight, setWeight] = useState('');
+  const [saved, setSaved] = useState(false);
+  const inputStyle = {
+    width: 64, background: 'transparent', color: PALETTE.cream,
+    border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', padding: '6px 10px',
+  };
+  const submit = () => {
+    const r = parseFloat(reps);
+    if (isNaN(r) || r <= 0) return;
+    const w = parseFloat(weight);
+    onLogSet(name, setNum, r, isNaN(w) || w < 0 ? 0 : w);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1600);
+  };
+  return (
+    <div className="flex items-center justify-center gap-2 flex-wrap mt-6" dir="ltr">
+      <span className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ opacity: 0.5 }}>{t('log_set', lang)}</span>
+      <input type="number" inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        placeholder={target} aria-label={t('unit_reps', lang)}
+        className="f-mono text-sm text-center" style={inputStyle} />
+      <span className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{t('unit_reps', lang)}</span>
+      <span className="f-mono text-[10px]" style={{ opacity: 0.4 }}>×</span>
+      <input type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        placeholder="0" aria-label={t('ws_weight', lang)}
+        className="f-mono text-sm text-center" style={inputStyle} />
+      <span className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{weightUnit}</span>
+      <button onClick={submit}
+        className="f-mono text-[10px] uppercase tracking-[0.2em] px-3 py-1.5 flex items-center gap-1.5"
+        style={{ background: saved ? PALETTE.sage : 'transparent', color: saved ? PALETTE.ink : PALETTE.cream, border: `1px solid ${saved ? PALETTE.sage : 'rgba(242,235,221,0.4)'}`, borderRadius: '999px' }}>
+        <Check size={11} strokeWidth={2.5} /> {saved ? t('logged', lang) : (lang === 'he' ? 'שמור' : 'Save')}
+      </button>
+    </div>
+  );
+}
+
+function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog, onLogSet, weightUnit = 'kg' }) {
   const steps = useMemo(() => buildWorkoutSteps(exercises), [exercises]);
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -304,9 +344,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
               </div>
             )}
 
-            {onLog && (
+            {/* Rep-based sets get per-set reps × weight logging; timed sets keep the single quick-log. */}
+            {onLogSet && !timedSec ? (
+              <SetLog key={`${step.ex.id}-${step.setNum}`} name={step.ex.name} setNum={step.setNum}
+                target={step.target} weightUnit={weightUnit} lang={lang} onLogSet={onLogSet} />
+            ) : onLog ? (
               <QuickLog key={step.ex.id} name={step.ex.name} unit={logUnitForScheme(step.target)} lang={lang} onLog={onLog} />
-            )}
+            ) : null}
 
             {restChips()}
           </div>
@@ -373,4 +417,4 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
 // ------------------------------------------------------------
 
 
-export { parseSets, buildWorkoutSteps, logUnitForScheme, parseTimedSeconds, fmtMMSS, QuickLog, GuidedWorkout };
+export { parseSets, buildWorkoutSteps, logUnitForScheme, parseTimedSeconds, fmtMMSS, QuickLog, SetLog, GuidedWorkout };

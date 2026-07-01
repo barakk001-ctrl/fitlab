@@ -13,7 +13,7 @@ import { generatePrintHTML } from './print.js';
 import { GuidedPlayer } from './session/GuidedPlayer.jsx';
 import { GuidedWorkout } from './session/GuidedWorkout.jsx';
 import { RestTimer } from './session/RestTimer.jsx';
-import { buildAutoName, loadActivityLog, loadAllPlans, loadBodyweightLog, loadChallenge, loadPerfLog, persistActivityLog, persistAllPlans, persistBodyweightLog, persistChallenge, persistPerfLog, todayISO } from './storage.js';
+import { buildAutoName, loadActivityLog, loadAllPlans, loadBodyweightLog, loadChallenge, loadPerfLog, loadSetLog, persistActivityLog, persistAllPlans, persistBodyweightLog, persistChallenge, persistPerfLog, persistSetLog, todayISO } from './storage.js';
 import { DARK, LIGHT, PALETTE, ThemeContext, applyTheme, readStoredTheme } from './theme.js';
 import { ChallengeView } from './views/ChallengeView.jsx';
 import { CustomBuilderView } from './views/CustomBuilderView.jsx';
@@ -77,6 +77,7 @@ export default function FitLab() {
   // Progress tracking
   const [activityLog, setActivityLog] = useState([]);   // [{date, kind}]
   const [perfLog, setPerfLog] = useState([]);           // [{date, name, value, unit}]
+  const [setLog, setSetLog] = useState([]);             // [{date, name, set, reps, weightKg}]
 
   // Saved plans (both workout + stretch live here, distinguished by .type)
   const [savedPlans, setSavedPlans] = useState([]);
@@ -99,6 +100,7 @@ export default function FitLab() {
     loadChallenge().then(c => { if (!cancelled) setChallenge(c); });
     loadActivityLog().then(a => { if (!cancelled) setActivityLog(a); });
     loadPerfLog().then(p => { if (!cancelled) setPerfLog(p); });
+    loadSetLog().then(s => { if (!cancelled) setSetLog(s); });
     return () => { cancelled = true; };
   }, []);
 
@@ -435,10 +437,21 @@ export default function FitLab() {
       return next;
     });
   };
+  // One entry per logged set. Weight arrives in the display unit; stored as kg
+  // (0 = bodyweight). Reps also feed the legacy rep-PR log so records keep accruing.
+  const recordSet = (name, setNum, reps, weightVal) => {
+    const weightKg = units === 'metric' ? weightVal : lbToKg(weightVal);
+    setSetLog((prev) => {
+      const next = [...prev, { date: todayISO(), name, set: setNum, reps, weightKg: Math.round(weightKg * 100) / 100 }];
+      persistSetLog(next);
+      return next;
+    });
+    recordPerf(name, reps, 'reps');
+  };
 
   // ---- Backup / restore (device-local data → portable code) ----
   const buildBackupCode = () => {
-    const data = { v: 1, plans: savedPlans, bodyweight: bodyweightLog, challenge, activity: activityLog, perf: perfLog };
+    const data = { v: 1, plans: savedPlans, bodyweight: bodyweightLog, challenge, activity: activityLog, perf: perfLog, sets: setLog };
     try { return btoa(unescape(encodeURIComponent(JSON.stringify(data)))); } catch { return ''; }
   };
   const applyBackupCode = async (code) => {
@@ -451,6 +464,7 @@ export default function FitLab() {
       else if (data.challenge === null) { await persistChallenge(null); }
       if (Array.isArray(data.activity)) { await persistActivityLog(data.activity); setActivityLog(data.activity); }
       if (Array.isArray(data.perf)) { await persistPerfLog(data.perf); setPerfLog(data.perf); }
+      if (Array.isArray(data.sets)) { await persistSetLog(data.sets); setSetLog(data.sets); }
       return true;
     } catch { return false; }
   };
@@ -524,6 +538,7 @@ export default function FitLab() {
           mode={mode} setMode={handleSetMode}
           activityLog={activityLog}
           perfLog={perfLog}
+          setLog={setLog}
           bodyweightLog={bodyweightLog}
           currentWeightKg={computed?.weightKg}
           targetKg={computed?.targetKg}
@@ -677,6 +692,8 @@ export default function FitLab() {
           onClose={() => setWorkoutSession(null)}
           onComplete={() => recordActivity(workoutSession.kind || 'workout')}
           onLog={recordPerf}
+          onLogSet={recordSet}
+          weightUnit={units === 'metric' ? 'kg' : 'lb'}
         />
       )}
 

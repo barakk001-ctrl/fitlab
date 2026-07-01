@@ -79,7 +79,7 @@ function BackupRestore({ onExport, onImport, lang }) {
   );
 }
 
-function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog, bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry, challenge, onExport, onImport }) {
+function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog, setLog = [], bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry, challenge, onExport, onImport }) {
   const dayMs = 86400000;
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const now = new Date();
@@ -103,6 +103,21 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
     return Object.entries(byName).map(([name, r]) => ({ name, ...r })).sort((a, b) => b.date.localeCompare(a.date));
   }, [perfLog]);
 
+  // Top lifts: heaviest logged set per exercise (weighted sets only; ties go to more reps).
+  const topLifts = useMemo(() => {
+    const byName = {};
+    setLog.forEach((s) => {
+      if (!(s.weightKg > 0)) return;
+      const cur = byName[s.name];
+      if (!cur || s.weightKg > cur.weightKg || (s.weightKg === cur.weightKg && s.reps > cur.reps)) byName[s.name] = s;
+    });
+    return Object.values(byName).sort((a, b) => b.date.localeCompare(a.date));
+  }, [setLog]);
+  const liftDisplay = (s) => {
+    const w = units === 'metric' ? s.weightKg : s.weightKg * 2.20462;
+    return `${Math.round(w * 10) / 10} ${units === 'metric' ? 'kg' : 'lb'} × ${s.reps}`;
+  };
+
   // Activity heatmap — last ~12 weeks aligned to weeks.
   const weeks = useMemo(() => {
     const start = new Date(today - 83 * dayMs);
@@ -118,7 +133,7 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
   }, [activityLog]);
 
   const unitLabel = (u) => t(u === 'sec' ? 'unit_sec' : u === 'min' ? 'unit_min' : 'unit_reps', lang);
-  const hasAny = activityLog.length > 0 || perfLog.length > 0 || bodyweightLog.length > 0;
+  const hasAny = activityLog.length > 0 || perfLog.length > 0 || setLog.length > 0 || bodyweightLog.length > 0;
 
   return (
     <div className="rise">
@@ -186,6 +201,26 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
             onOpenLog={onOpenWeightLog}
             onDelete={onDeleteWeightEntry}
           />
+
+          {/* Top lifts — heaviest logged set per exercise */}
+          {topLifts.length > 0 && (
+            <section className="px-6 md:px-12 pb-10">
+              <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+                <h2 className="f-display font-bold text-2xl md:text-3xl" style={{ color: PALETTE.ink }}>{t('prog_lifts', lang)}</h2>
+              </div>
+              <p className="f-body text-sm mb-5" style={{ opacity: 0.7 }}>{t('prog_lifts_sub', lang)}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {topLifts.map((s) => (
+                  <div key={s.name} className="flex items-baseline justify-between gap-3 p-4" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px' }}>
+                    <span className="f-display font-semibold" style={{ color: PALETTE.ink }} dir="ltr">{s.name}</span>
+                    <span className="f-mono text-sm whitespace-nowrap" style={{ color: PALETTE.forest }} dir="ltr">
+                      {liftDisplay(s)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Personal records */}
           <section className="px-6 md:px-12 pb-16">

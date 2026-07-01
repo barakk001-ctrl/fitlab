@@ -191,6 +191,10 @@ const STRINGS = {
 
     // Set logging
     log_result: 'Log result',
+    log_set: 'Log set',
+    ws_weight: 'Weight',
+    prog_lifts: 'Top lifts',
+    prog_lifts_sub: 'Heaviest logged set per exercise.',
     logged: 'Logged ✓',
     unit_reps: 'reps',
     unit_sec: 'sec',
@@ -502,6 +506,10 @@ const STRINGS = {
 
     // Set logging
     log_result: 'תיעוד תוצאה',
+    log_set: 'תיעוד סט',
+    ws_weight: 'משקל',
+    prog_lifts: 'הרמות שיא',
+    prog_lifts_sub: 'הסט הכבד ביותר שתועד לכל תרגיל.',
     logged: 'נשמר ✓',
     unit_reps: 'חזרות',
     unit_sec: 'שנ׳',

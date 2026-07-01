@@ -139,6 +139,26 @@ async function persistPerfLog(entries) {
   } catch (e) { console.error('Perf save failed:', e); return false; }
 }
 
+// Set log — one entry per logged set in a guided workout.
+// [{date, name, set, reps, weightKg}] — weightKg 0 means bodyweight.
+const SETS_KEY = 'fitlab:sets';
+async function loadSetLog() {
+  try {
+    if (!window.storage) return [];
+    const result = await window.storage.get(SETS_KEY);
+    if (!result?.value) return [];
+    const parsed = JSON.parse(result.value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+async function persistSetLog(entries) {
+  try {
+    if (!window.storage) return false;
+    await window.storage.set(SETS_KEY, JSON.stringify(entries));
+    return true;
+  } catch (e) { console.error('Set log save failed:', e); return false; }
+}
+
 // Streak: consecutive days (ending today or yesterday) with any activity.
 function computeStreak(dates) {
   const set = new Set(dates);
@@ -161,4 +181,4 @@ const todayISO = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-export { STORAGE_KEY, loadAllPlans, persistAllPlans, buildAutoName, formatSavedDate, BODYWEIGHT_KEY, loadBodyweightLog, persistBodyweightLog, CHALLENGE_KEY, loadChallenge, persistChallenge, challengeDayNumber, ACTIVITY_KEY, loadActivityLog, persistActivityLog, PERF_KEY, loadPerfLog, persistPerfLog, computeStreak, todayISO };
+export { STORAGE_KEY, loadAllPlans, persistAllPlans, buildAutoName, formatSavedDate, BODYWEIGHT_KEY, loadBodyweightLog, persistBodyweightLog, CHALLENGE_KEY, loadChallenge, persistChallenge, challengeDayNumber, ACTIVITY_KEY, loadActivityLog, persistActivityLog, PERF_KEY, loadPerfLog, persistPerfLog, SETS_KEY, loadSetLog, persistSetLog, computeStreak, todayISO };
