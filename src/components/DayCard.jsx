@@ -1,4 +1,4 @@
-import { Activity, Check, CheckCircle2, ChevronDown, ChevronUp, Dumbbell, ExternalLink, Pencil, Play, Plus, Shuffle, Timer, Trash2 } from 'lucide-react';
+import { Activity, Check, CheckCircle2, ChevronDown, ChevronUp, Dumbbell, ExternalLink, Pencil, Play, Plus, Search, Shuffle, Timer, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ytSearch } from '../calc.js';
 import { EX } from '../data/exercises.js';
@@ -85,37 +85,66 @@ function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, on
   );
 }
 
-// Inline "add exercise" form shown in edit mode at the bottom of a track.
+// Inline "add exercise" form shown in edit mode at the bottom of a track:
+// a searchable picker (type to filter the library) + sets × reps.
 function AddExerciseRow({ equip, lang, dark, onAdd }) {
-  const [exId, setExId] = useState('');
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState(null); // exId once chosen
   const [sets, setSets] = useState(3);
   const [reps, setReps] = useState(10);
   const options = Object.entries(EX)
     .filter(([, e]) => e.equip === equip)
     .sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const q = query.trim().toLowerCase();
+  const matches = !picked && q ? options.filter(([, e]) => e.name.toLowerCase().includes(q)).slice(0, 8) : [];
+  const pick = ([id, e]) => { setPicked(id); setQuery(e.name); };
   const fieldStyle = {
     background: 'transparent',
     color: dark ? PALETTE.cream : PALETTE.ink,
     border: `1px solid ${dark ? 'rgba(242,235,221,0.4)' : 'rgba(27,27,25,0.4)'}`,
     borderRadius: '999px', padding: '5px 10px',
   };
+  const submit = () => {
+    if (!picked) return;
+    onAdd(picked, sets, reps);
+    setQuery('');
+    setPicked(null);
+  };
   return (
     <div className="no-print flex items-center gap-2 flex-wrap pt-3 mt-1" dir="ltr"
       style={{ borderTop: `1px dashed ${dark ? 'rgba(242,235,221,0.25)' : 'rgba(27,27,25,0.25)'}` }}>
-      <select value={exId} onChange={(e) => setExId(e.target.value)} aria-label={t('ed_pick', lang)}
-        className="f-mono text-[11px]" style={{ ...fieldStyle, maxWidth: 180 }}>
-        <option value="">{t('ed_pick', lang)}</option>
-        {options.map(([id, e]) => <option key={id} value={id}>{e.name}</option>)}
-      </select>
+      <span className="relative inline-flex items-center" style={{ maxWidth: 200 }}>
+        <Search size={12} strokeWidth={2} className="absolute" style={{ insetInlineStart: 10, opacity: 0.5, pointerEvents: 'none' }} />
+        <input value={query} role="combobox" aria-expanded={matches.length > 0}
+          onChange={(e) => { setQuery(e.target.value); setPicked(null); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { if (picked) submit(); else if (matches.length) pick(matches[0]); }
+            if (e.key === 'Escape') { setQuery(''); setPicked(null); }
+          }}
+          placeholder={t('build_search', lang)} aria-label={t('ed_pick', lang)}
+          className="f-mono text-[11px] w-full" style={{ ...fieldStyle, paddingInlineStart: 28 }} />
+        {matches.length > 0 && (
+          <div className="absolute z-20 top-full mt-1 w-full overflow-hidden" role="listbox"
+            style={{ background: dark ? PALETTE.forest : PALETTE.paper, border: `1px solid ${dark ? PALETTE.sage : PALETTE.ink}`, borderRadius: '8px', minWidth: 200, boxShadow: '0 8px 20px rgba(27,27,25,0.25)' }}>
+            {matches.map(([id, e]) => (
+              <button key={id} role="option" onClick={() => pick([id, e])}
+                className="block w-full text-start f-body text-[12px] px-3 py-2"
+                style={{ color: dark ? PALETTE.cream : PALETTE.ink, borderBottom: `1px solid ${dark ? 'rgba(242,235,221,0.15)' : 'rgba(27,27,25,0.12)'}` }}>
+                {e.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </span>
       <input type="number" min={1} max={10} value={sets} onChange={(e) => setSets(parseInt(e.target.value, 10) || 1)}
         aria-label={t('build_sets', lang)} className="f-mono text-[11px] text-center" style={{ ...fieldStyle, width: 48 }} />
       <span className="f-mono text-[10px]" style={{ opacity: 0.5 }}>×</span>
       <input type="number" min={1} max={50} value={reps} onChange={(e) => setReps(parseInt(e.target.value, 10) || 1)}
         aria-label={t('build_reps', lang)} className="f-mono text-[11px] text-center" style={{ ...fieldStyle, width: 48 }} />
-      <button onClick={() => { if (exId) { onAdd(exId, sets, reps); setExId(''); } }}
-        disabled={!exId}
+      <button onClick={submit}
+        disabled={!picked}
         className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
-        style={{ ...fieldStyle, opacity: exId ? 1 : 0.45, cursor: exId ? 'pointer' : 'not-allowed' }}>
+        style={{ ...fieldStyle, opacity: picked ? 1 : 0.45, cursor: picked ? 'pointer' : 'not-allowed' }}>
         <Plus size={11} strokeWidth={2.5} /> {t('ed_add', lang)}
       </button>
     </div>
