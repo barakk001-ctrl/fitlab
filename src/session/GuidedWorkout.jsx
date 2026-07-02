@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { StretchVideo } from '../components/video.jsx';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import { isRTL, t } from '../i18n.js';
-import { IS_IOS, buzz, ensureNotifyPermission, notify, playBeep, startPhoneTimer } from '../media.js';
+import { IS_IOS, buzz, cancelPush, ensureNotifyPermission, notify, playBeep, schedulePush, startPhoneTimer } from '../media.js';
 import { PALETTE } from '../theme.js';
 function parseSets(prescription) {
   const m = (prescription || '').match(/^(\d+)\s*[×x]\s*(.+)$/);
@@ -163,6 +163,9 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   // / app-switch — when you return, remaining is recomputed from real time.
   const restEndRef = useRef(0);
   const workEndRef = useRef(0);
+  // One server-push slot per session — rescheduling the same id replaces it.
+  const pushIdRef = useRef('gw-' + Math.random().toString(36).slice(2, 10));
+  useEffect(() => () => cancelPush(pushIdRef.current), []); // never fire after close
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
   useWakeLock(!finished); // keep the screen on during the session
@@ -185,6 +188,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
         if (!ended) {
           ended = true; playBeep(220, 760); buzz();
           notify(t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
+          cancelPush(pushIdRef.current); // page is alive — the local alert covered it
         }
         setRestLeft(0);
       }
@@ -217,6 +221,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
         if (!ended) {
           ended = true; playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]);
           notify(t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
+          cancelPush(pushIdRef.current);
         }
         setWorkLeft(0);
       }
@@ -228,7 +233,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
   }, [workActive]);
 
-  const stopTimers = () => { setRestLeft(0); setWorkLeft(0); setCountIn(0); };
+  const stopTimers = () => { cancelPush(pushIdRef.current); setRestLeft(0); setWorkLeft(0); setCountIn(0); };
   const next = () => {
     stopTimers();
     if (isLast) {
@@ -239,13 +244,27 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     }
   };
   const prev = () => { stopTimers(); setStepIdx((i) => Math.max(0, i - 1)); };
+  const schedulePushForRest = (seconds) =>
+    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
   const startRest = () => {
-    ensureNotifyPermission(); // user gesture — the only moment iOS will grant it
+    // Permission prompt must come from this user gesture (iOS requirement);
+    // once granted, the server push covers the page being suspended.
+    ensureNotifyPermission().then((ok) => { if (ok) schedulePushForRest(restDuration); });
     restEndRef.current = Date.now() + restDuration * 1000;
     setRestLeft(restDuration);
   };
-  const setRest = (v) => { setRestDuration(v); if (resting) { restEndRef.current = Date.now() + v * 1000; setRestLeft(v); } };
-  const startWork = () => { if (timedSec) { ensureNotifyPermission(); setWorkTotal(timedSec); setCountIn(3); } };
+  const setRest = (v) => {
+    setRestDuration(v);
+    if (resting) { restEndRef.current = Date.now() + v * 1000; setRestLeft(v); schedulePushForRest(v); }
+  };
+  const startWork = () => {
+    if (!timedSec) return;
+    ensureNotifyPermission().then((ok) => {
+      if (ok) schedulePush(pushIdRef.current, 3 + timedSec, t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
+    });
+    setWorkTotal(timedSec);
+    setCountIn(3);
+  };
   const restart = () => { setFinished(false); setStepIdx(0); stopTimers(); };
 
   const totalExercises = exercises.length;
@@ -441,7 +460,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
               <SkipForward size={14} strokeWidth={2.5} /> {t('ws_skip_rest', lang)}
             </button>
           ) : resting ? (
-            <button onClick={() => setRestLeft(0)}
+            <button onClick={() => { cancelPush(pushIdRef.current); setRestLeft(0); }}
               className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
               style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 160, justifyContent: 'center' }}>
               <SkipForward size={14} strokeWidth={2.5} /> {t('ws_skip_rest', lang)}

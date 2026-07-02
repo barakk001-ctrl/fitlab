@@ -1,6 +1,6 @@
 // FitLab service worker — app-shell offline support.
 // Bump CACHE when the shell list changes to evict old caches.
-const CACHE = 'fitlab-v2';
+const CACHE = 'fitlab-v3';
 const CORE = [
   '/',
   '/index.html',
@@ -22,6 +22,23 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+  );
+});
+
+// Server-sent timer push (survives the page being suspended, e.g. iOS PWA
+// in the background). iOS requires every push to show a notification.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch {}
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'FitLab', {
+      body: data.body || '',
+      tag: 'fitlab-timer',
+      renotify: true,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      vibrate: [200, 80, 200],
+    })
   );
 });
 

@@ -86,4 +86,64 @@ async function notify(title, body) {
   } catch { return false; }
 }
 
-export { IS_IOS, startPhoneTimer, playBeep, buzz, ensureNotifyPermission, notify };
+// ------------------------------------------------------------
+// Server-sent Web Push for timer endings.
+// The page schedules a push for when the timer expires and cancels it if it is
+// still running at that moment (foreground OR background-with-JS handles the
+// alert locally). If the OS suspended the page — iOS PWA in background — the
+// cancel never happens and the push service delivers the notification.
+// ------------------------------------------------------------
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+const canPush = () => canNotify() && typeof window !== 'undefined' && 'PushManager' in window;
+
+let subPromise = null;
+async function getPushSubscription() {
+  if (!canPush() || Notification.permission !== 'granted') return null;
+  if (!subPromise) {
+    subPromise = (async () => {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) return existing;
+      const res = await fetch('/api/push/pubkey');
+      const { key } = await res.json();
+      if (!key) return null;
+      return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+    })().catch(() => { subPromise = null; return null; });
+  }
+  return subPromise;
+}
+
+// Schedule a push for `delaySeconds` from now. Same id replaces the previous
+// schedule. Returns true if the server accepted it.
+async function schedulePush(id, delaySeconds, title, body) {
+  try {
+    const sub = await getPushSubscription();
+    if (!sub) return false;
+    const res = await fetch('/api/push/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, subscription: sub.toJSON(), delaySeconds, title, body }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+function cancelPush(id) {
+  try {
+    fetch('/api/push/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {}
+}
+
+export { IS_IOS, startPhoneTimer, playBeep, buzz, ensureNotifyPermission, notify, schedulePush, cancelPush };

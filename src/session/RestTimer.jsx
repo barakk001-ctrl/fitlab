@@ -1,8 +1,8 @@
 import { Pause, Play, RotateCcw, SkipForward, Timer, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCountdown } from '../hooks/useCountdown.js';
 import { isRTL, t } from '../i18n.js';
-import { ensureNotifyPermission, notify, playBeep } from '../media.js';
+import { cancelPush, ensureNotifyPermission, notify, playBeep, schedulePush } from '../media.js';
 import { PALETTE } from '../theme.js';
 function RestTimer({ exercise, lang, onClose }) {
   const baseRest = exercise?.restSeconds ?? 90;
@@ -10,18 +10,22 @@ function RestTimer({ exercise, lang, onClose }) {
   const [duration, setDuration] = useState(initial);
   const [done, setDone] = useState(false);
 
+  const pushIdRef = useRef('rt-' + Math.random().toString(36).slice(2, 10));
   const timer = useCountdown(() => {
     setDone(true);
     playBeep(220, 880);
     setTimeout(() => playBeep(220, 880), 280);
     notify(t('notif_rest_done', lang), exercise?.name || '');
+    cancelPush(pushIdRef.current); // page alive — local alert covered it
   });
   const { secondsLeft, paused } = timer;
+  const schedule = (seconds) => schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), exercise?.name || '');
 
   // The timer opens from a click, so the transient activation usually still
   // covers this request; where it doesn't (iOS), the guided workout's rest
   // button asks again from a direct gesture.
   useEffect(() => { ensureNotifyPermission(); }, []);
+  useEffect(() => () => cancelPush(pushIdRef.current), []); // never fire after close
 
   // When a different exercise is opened, reset duration to that exercise's default
   useEffect(() => {
@@ -33,10 +37,11 @@ function RestTimer({ exercise, lang, onClose }) {
   useEffect(() => {
     setDone(false);
     timer.start(duration);
+    schedule(duration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
 
-  const reset = () => { setDone(false); timer.start(duration); };
+  const reset = () => { setDone(false); timer.start(duration); schedule(duration); };
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const display = `${minutes}:${String(Math.max(secs, 0)).padStart(2, '0')}`;
@@ -103,7 +108,10 @@ function RestTimer({ exercise, lang, onClose }) {
 
       <div className="flex items-center gap-2 flex-wrap">
         {!done ? (
-          <button onClick={() => (paused ? timer.resume() : timer.pause())}
+          <button onClick={() => {
+            if (paused) { timer.resume(); schedule(Math.max(1, timer.secondsLeft)); }
+            else { timer.pause(); cancelPush(pushIdRef.current); }
+          }}
             className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
             style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', cursor: 'pointer' }}>
             {paused ? <Play size={11} strokeWidth={2} /> : <Pause size={11} strokeWidth={2} />}
