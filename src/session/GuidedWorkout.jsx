@@ -186,9 +186,15 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
       const left = Math.max(0, Math.round((restEndRef.current - Date.now()) / 1000));
       if (left <= 0) {
         if (!ended) {
-          ended = true; playBeep(220, 760); buzz();
-          notify(t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
-          cancelPush(pushIdRef.current); // page is alive — the local alert covered it
+          ended = true;
+          cancelPush(pushIdRef.current);
+          // Alert only when the rest *just* ended; a stale expiry means the page
+          // was suspended past the end and the server push already alerted —
+          // re-alerting here would duplicate the notification on return.
+          if (Date.now() - restEndRef.current < 3000) {
+            playBeep(220, 760); buzz();
+            notify(t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
+          }
         }
         setRestLeft(0);
       }
@@ -219,9 +225,12 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
       const left = Math.max(0, Math.round((workEndRef.current - Date.now()) / 1000));
       if (left <= 0) {
         if (!ended) {
-          ended = true; playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]);
-          notify(t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
+          ended = true;
           cancelPush(pushIdRef.current);
+          if (Date.now() - workEndRef.current < 3000) { // see rest tick — no re-alert on stale expiry
+            playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]);
+            notify(t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
+          }
         }
         setWorkLeft(0);
       }

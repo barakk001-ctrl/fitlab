@@ -29,7 +29,10 @@ function useCountdown(onExpire) {
       if (left <= 0 && !ended) {
         ended = true;
         setRunState('idle');
-        expireRef.current?.();
+        // overdueMs tells the callback how stale the expiry is: ~0 when it just
+        // happened, large when the page was suspended and we're only catching
+        // up now (in that case a server push already alerted the user).
+        expireRef.current?.(Date.now() - endRef.current);
       }
     };
     const id = setInterval(tick, 250);

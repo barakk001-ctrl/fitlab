@@ -11,12 +11,17 @@ function RestTimer({ exercise, lang, onClose }) {
   const [done, setDone] = useState(false);
 
   const pushIdRef = useRef('rt-' + Math.random().toString(36).slice(2, 10));
-  const timer = useCountdown(() => {
+  const timer = useCountdown((overdueMs) => {
     setDone(true);
-    playBeep(220, 880);
-    setTimeout(() => playBeep(220, 880), 280);
-    notify(t('notif_rest_done', lang), exercise?.name || '');
-    cancelPush(pushIdRef.current); // page alive — local alert covered it
+    cancelPush(pushIdRef.current);
+    // Only alert when the timer *just* ended. A stale expiry means the page was
+    // suspended past the end — the server push already alerted, so re-alerting
+    // here would duplicate the notification the user tapped to get back.
+    if (overdueMs < 3000) {
+      playBeep(220, 880);
+      setTimeout(() => playBeep(220, 880), 280);
+      notify(t('notif_rest_done', lang), exercise?.name || '');
+    }
   });
   const { secondsLeft, paused } = timer;
   const schedule = (seconds) => schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), exercise?.name || '');
