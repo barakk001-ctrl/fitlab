@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw, SkipForward, Timer, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCountdown } from '../hooks/useCountdown.js';
 import { isRTL, t } from '../i18n.js';
-import { playBeep } from '../media.js';
+import { ensureNotifyPermission, notify, playBeep } from '../media.js';
 import { PALETTE } from '../theme.js';
 function RestTimer({ exercise, lang, onClose }) {
   const baseRest = exercise?.restSeconds ?? 90;
@@ -14,8 +14,14 @@ function RestTimer({ exercise, lang, onClose }) {
     setDone(true);
     playBeep(220, 880);
     setTimeout(() => playBeep(220, 880), 280);
+    notify(t('notif_rest_done', lang), exercise?.name || '');
   });
   const { secondsLeft, paused } = timer;
+
+  // The timer opens from a click, so the transient activation usually still
+  // covers this request; where it doesn't (iOS), the guided workout's rest
+  // button asks again from a direct gesture.
+  useEffect(() => { ensureNotifyPermission(); }, []);
 
   // When a different exercise is opened, reset duration to that exercise's default
   useEffect(() => {

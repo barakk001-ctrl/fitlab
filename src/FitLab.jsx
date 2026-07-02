@@ -698,6 +698,7 @@ export default function FitLab() {
           onLog={recordPerf}
           onLogSet={recordSet}
           loggedSets={setLog.filter((s) => s.date === todayISO())}
+          setHistory={setLog}
           weightUnit={units === 'metric' ? 'kg' : 'lb'}
         />
       )}

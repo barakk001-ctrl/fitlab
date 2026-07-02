@@ -53,7 +53,37 @@ function buzz(pattern = [120, 60, 120]) {
 }
 
 // ------------------------------------------------------------
-// Static data — age / goals / splits
+// Timer notifications (service-worker local notifications)
 // ------------------------------------------------------------
 
-export { IS_IOS, startPhoneTimer, playBeep, buzz };
+const canNotify = () =>
+  typeof Notification !== 'undefined' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+
+// Ask for notification permission. Must be called from a user gesture
+// (iOS requires it, and only grants to Home-Screen-installed web apps).
+async function ensureNotifyPermission() {
+  if (!canNotify()) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  try { return (await Notification.requestPermission()) === 'granted'; } catch { return false; }
+}
+
+// Show a notification when the app is NOT visible (foreground already
+// beeps + vibrates). Goes through the service worker registration —
+// `new Notification()` is unsupported on iOS; reg.showNotification() works
+// in installed PWAs on iOS 16.4+. `tag` replaces older timer alerts.
+async function notify(title, body) {
+  try {
+    if (!canNotify() || Notification.permission !== 'granted') return false;
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') return false;
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification(title, {
+      body, tag: 'fitlab-timer', renotify: true,
+      icon: '/icon-192.png', badge: '/icon-192.png',
+      vibrate: [200, 80, 200],
+    });
+    return true;
+  } catch { return false; }
+}
+
+export { IS_IOS, startPhoneTimer, playBeep, buzz, ensureNotifyPermission, notify };

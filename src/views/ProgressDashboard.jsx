@@ -1,5 +1,6 @@
 import { Activity, Bookmark, CheckCircle2, ChevronDown, ChevronUp, Flame, RotateCcw, Save, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { BodyweightSection } from '../components/Bodyweight.jsx';
 import { MastHead, Pill, StatCard } from '../components/shared.jsx';
 import { t } from '../i18n.js';
@@ -118,6 +119,28 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
     return `${Math.round(w * 10) / 10} ${units === 'metric' ? 'kg' : 'lb'} × ${s.reps}`;
   };
   const setDisplay = (s) => (s.weightKg > 0 ? liftDisplay(s) : `${s.reps} ${t('unit_reps', lang)}`);
+
+  // Strength trend: heaviest set per day for one selected exercise.
+  const trendNames = useMemo(() => {
+    const counts = {};
+    setLog.forEach((s) => { if (s.weightKg > 0) counts[s.name] = (counts[s.name] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  }, [setLog]);
+  const [trendEx, setTrendEx] = useState(null);
+  const activeTrend = trendEx && trendNames.includes(trendEx) ? trendEx : trendNames[0];
+  const trendData = useMemo(() => {
+    if (!activeTrend) return [];
+    const byDate = {};
+    setLog.forEach((s) => {
+      if (s.name !== activeTrend || !(s.weightKg > 0)) return;
+      if (!byDate[s.date] || s.weightKg > byDate[s.date]) byDate[s.date] = s.weightKg;
+    });
+    const toDisplay = (kg) => Math.round((units === 'metric' ? kg : kg * 2.20462) * 10) / 10;
+    return Object.entries(byDate)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, kg]) => ({ date, weight: toDisplay(kg) }));
+  }, [setLog, activeTrend, units]);
+  const trendUnit = units === 'metric' ? 'kg' : 'lb';
 
   // Session history: logged sets grouped by day, newest first.
   const [openDay, setOpenDay] = useState(null);
@@ -284,13 +307,51 @@ function ProgressDashboard({ lang, setLang, mode, setMode, activityLog, perfLog,
               <p className="f-body text-sm mb-5" style={{ opacity: 0.7 }}>{t('prog_lifts_sub', lang)}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {topLifts.map((s) => (
-                  <div key={s.name} className="flex items-baseline justify-between gap-3 p-4" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '6px' }}>
+                  <button key={s.name} onClick={() => { setTrendEx(s.name); document.getElementById('strength-trend')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+                    className="flex items-baseline justify-between gap-3 p-4 text-start w-full"
+                    style={{ background: PALETTE.paper, border: `1px solid ${activeTrend === s.name ? PALETTE.forest : PALETTE.ink}`, borderRadius: '6px', cursor: 'pointer' }}>
                     <span className="f-display font-semibold" style={{ color: PALETTE.ink }} dir="ltr">{s.name}</span>
                     <span className="f-mono text-sm whitespace-nowrap" style={{ color: PALETTE.forest }} dir="ltr">
                       {liftDisplay(s)}
                     </span>
-                  </div>
+                  </button>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* Strength trend — heaviest set per day, one exercise at a time */}
+          {trendNames.length > 0 && (
+            <section id="strength-trend" className="px-6 md:px-12 pb-10">
+              <h2 className="f-display font-bold text-2xl md:text-3xl mb-2" style={{ color: PALETTE.ink }}>{t('prog_trend', lang)}</h2>
+              <p className="f-body text-sm mb-4" style={{ opacity: 0.7 }}>{t('prog_trend_sub', lang)}</p>
+              <div className="flex flex-wrap gap-1.5 mb-4" dir="ltr">
+                {trendNames.slice(0, 8).map((name) => {
+                  const active = name === activeTrend;
+                  return (
+                    <button key={name} onClick={() => setTrendEx(name)}
+                      className="f-mono text-[10px] tracking-wider px-3 py-1.5"
+                      style={{ background: active ? PALETTE.ink : 'transparent', color: active ? PALETTE.cream : PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px', cursor: 'pointer' }}>
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="p-4 md:p-5" style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '4px' }}>
+                <div style={{ width: '100%', height: 240 }} dir="ltr">
+                  <ResponsiveContainer>
+                    <LineChart data={trendData} margin={{ top: 5, right: 16, bottom: 5, left: -10 }}>
+                      <CartesianGrid stroke="rgba(27,27,25,0.08)" strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: 'Manrope', fill: PALETTE.ink }} stroke={PALETTE.ink} tickFormatter={(d) => d.slice(5)} />
+                      <YAxis tick={{ fontSize: 10, fontFamily: 'Manrope', fill: PALETTE.ink }} stroke={PALETTE.ink} domain={['dataMin - 2', 'dataMax + 2']} />
+                      <Tooltip
+                        contentStyle={{ background: PALETTE.cream, border: `1px solid ${PALETTE.ink}`, borderRadius: 4, fontFamily: 'Manrope', fontSize: 12 }}
+                        formatter={(value) => [`${value} ${trendUnit}`, activeTrend]}
+                      />
+                      <Line type="monotone" dataKey="weight" stroke={PALETTE.forest} strokeWidth={2.5} dot={{ r: 4, fill: PALETTE.forest }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </section>
           )}

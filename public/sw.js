@@ -1,6 +1,6 @@
 // FitLab service worker — app-shell offline support.
 // Bump CACHE when the shell list changes to evict old caches.
-const CACHE = 'fitlab-v1';
+const CACHE = 'fitlab-v2';
 const CORE = [
   '/',
   '/index.html',
@@ -22,6 +22,17 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+  );
+});
+
+// Tapping a timer notification focuses the app (or reopens it).
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const client = list.find((w) => 'focus' in w);
+      return client ? client.focus() : self.clients.openWindow('/');
+    })
   );
 });
 

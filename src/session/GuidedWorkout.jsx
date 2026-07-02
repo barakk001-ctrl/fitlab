@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { StretchVideo } from '../components/video.jsx';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import { isRTL, t } from '../i18n.js';
-import { IS_IOS, buzz, playBeep, startPhoneTimer } from '../media.js';
+import { IS_IOS, buzz, ensureNotifyPermission, notify, playBeep, startPhoneTimer } from '../media.js';
 import { PALETTE } from '../theme.js';
 function parseSets(prescription) {
   const m = (prescription || '').match(/^(\d+)\s*[×x]\s*(.+)$/);
@@ -75,7 +75,7 @@ function QuickLog({ name, unit, lang, onLog }) {
 
 // Per-set logger for rep-based sets: reps done + weight used (blank/0 = bodyweight).
 // When the set was already logged today, its values prefill and Save replaces them.
-function SetLog({ name, setNum, target, weightUnit, lang, onLogSet, initialReps = '', initialWeight = '' }) {
+function SetLog({ name, setNum, target, weightUnit, lang, onLogSet, initialReps = '', initialWeight = '', weightPlaceholder = '0' }) {
   const [reps, setReps] = useState(initialReps);
   const [weight, setWeight] = useState(initialWeight);
   const [saved, setSaved] = useState(initialReps !== '');
@@ -101,7 +101,7 @@ function SetLog({ name, setNum, target, weightUnit, lang, onLogSet, initialReps 
       <span className="f-mono text-[10px]" style={{ opacity: 0.4 }}>×</span>
       <input type="number" inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setSaved(false); }}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-        placeholder="0" aria-label={t('ws_weight', lang)}
+        placeholder={weightPlaceholder} aria-label={t('ws_weight', lang)}
         className="f-mono text-sm text-center" style={inputStyle} />
       <span className="f-mono text-[10px] uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{weightUnit}</span>
       <button onClick={submit}
@@ -113,8 +113,42 @@ function SetLog({ name, setNum, target, weightUnit, lang, onLogSet, initialReps 
   );
 }
 
-function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog, onLogSet, loggedSets = [], weightUnit = 'kg' }) {
+// Top of a rep target: "8–10" -> 10, "12" -> 12, non-numeric -> null.
+function parseTargetTop(target) {
+  const m = (target || '').match(/^(\d+)(?:\s*[–-]\s*(\d+))?/);
+  return m ? parseInt(m[2] || m[1], 10) : null;
+}
+
+function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog, onLogSet, loggedSets = [], setHistory = [], weightUnit = 'kg' }) {
   const kgToDisplay = (kg) => (weightUnit === 'lb' ? Math.round(kg * 2.20462 * 10) / 10 : kg);
+
+  // Last previous session per exercise: sets from the most recent day before today.
+  const lastByName = useMemo(() => {
+    const now = new Date();
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const latest = {};
+    setHistory.forEach((s) => {
+      if (s.date < todayISO && (!latest[s.name] || s.date > latest[s.name])) latest[s.name] = s.date;
+    });
+    const out = {};
+    setHistory.forEach((s) => {
+      if (latest[s.name] === s.date) (out[s.name] = out[s.name] || []).push(s);
+    });
+    Object.values(out).forEach((arr) => arr.sort((a, b) => a.set - b.set));
+    return out;
+  }, [setHistory]);
+
+  // Suggested next weight (display units): the heaviest last-time weight, bumped
+  // by +2.5 kg / +5 lb when every last-time set reached the target's top reps.
+  const suggestFor = (lastSets, target) => {
+    const weighted = (lastSets || []).filter((s) => s.weightKg > 0);
+    if (!weighted.length) return null;
+    const maxDisp = kgToDisplay(Math.max(...weighted.map((s) => s.weightKg)));
+    const top = parseTargetTop(target);
+    const bumped = top != null && weighted.every((s) => s.reps >= top);
+    const inc = weightUnit === 'lb' ? 5 : 2.5;
+    return { value: Math.round((bumped ? maxDisp + inc : maxDisp) * 10) / 10, bumped };
+  };
   const steps = useMemo(() => buildWorkoutSteps(exercises), [exercises]);
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -138,6 +172,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const step = steps[stepIdx] || null;
   const isLast = stepIdx >= steps.length - 1;
   const timedSec = step ? parseTimedSeconds(step.target) : null;
+  const lastSets = step && !timedSec ? lastByName[step.ex.name] : null;
+  const suggestion = lastSets ? suggestFor(lastSets, step.target) : null;
 
   // Rest countdown — driven by an absolute deadline; recomputes on return.
   useEffect(() => {
@@ -145,7 +181,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     let ended = false;
     const tick = () => {
       const left = Math.max(0, Math.round((restEndRef.current - Date.now()) / 1000));
-      if (left <= 0) { if (!ended) { ended = true; playBeep(220, 760); buzz(); } setRestLeft(0); }
+      if (left <= 0) {
+        if (!ended) {
+          ended = true; playBeep(220, 760); buzz();
+          notify(t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
+        }
+        setRestLeft(0);
+      }
       else setRestLeft(left);
     };
     const id = setInterval(tick, 500);
@@ -171,7 +213,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     let ended = false;
     const tick = () => {
       const left = Math.max(0, Math.round((workEndRef.current - Date.now()) / 1000));
-      if (left <= 0) { if (!ended) { ended = true; playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]); } setWorkLeft(0); }
+      if (left <= 0) {
+        if (!ended) {
+          ended = true; playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]);
+          notify(t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
+        }
+        setWorkLeft(0);
+      }
       else setWorkLeft(left);
     };
     const id = setInterval(tick, 500);
@@ -191,9 +239,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     }
   };
   const prev = () => { stopTimers(); setStepIdx((i) => Math.max(0, i - 1)); };
-  const startRest = () => { restEndRef.current = Date.now() + restDuration * 1000; setRestLeft(restDuration); };
+  const startRest = () => {
+    ensureNotifyPermission(); // user gesture — the only moment iOS will grant it
+    restEndRef.current = Date.now() + restDuration * 1000;
+    setRestLeft(restDuration);
+  };
   const setRest = (v) => { setRestDuration(v); if (resting) { restEndRef.current = Date.now() + v * 1000; setRestLeft(v); } };
-  const startWork = () => { if (timedSec) { setWorkTotal(timedSec); setCountIn(3); } };
+  const startWork = () => { if (timedSec) { ensureNotifyPermission(); setWorkTotal(timedSec); setCountIn(3); } };
   const restart = () => { setFinished(false); setStepIdx(0); stopTimers(); };
 
   const totalExercises = exercises.length;
@@ -339,6 +391,22 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
               {step.target}{numericTarget ? <span className="f-body" style={{ fontSize: '0.32em', opacity: 0.7, marginInlineStart: '0.5rem' }}>{lang === 'he' ? 'חזרות' : 'reps'}</span> : null}
             </div>
 
+            {/* What you did last session + progression nudge */}
+            {lastSets && (
+              <div className="f-mono text-[10px] uppercase tracking-[0.2em] mt-4 flex items-center justify-center gap-2 flex-wrap" dir="ltr">
+                <span style={{ opacity: 0.5 }}>{t('ws_last_time', lang)}:</span>
+                <span style={{ opacity: 0.85 }}>
+                  {lastSets.map((s) => (s.weightKg > 0 ? `${kgToDisplay(s.weightKg)}×${s.reps}` : `${s.reps}`)).join(' · ')}
+                  {' '}{lastSets.some((s) => s.weightKg > 0) ? weightUnit : t('unit_reps', lang)}
+                </span>
+                {suggestion?.bumped && (
+                  <span className="px-2.5 py-1" style={{ border: `1px solid ${PALETTE.sage}`, color: PALETTE.sage, borderRadius: '999px' }}>
+                    {t('ws_try', lang, { w: `${suggestion.value} ${weightUnit}` })}
+                  </span>
+                )}
+              </div>
+            )}
+
             {step.ex.video && (
               <div className="mt-7 mx-auto" style={{ width: '100%', maxWidth: 480 }}>
                 <StretchVideo key={step.ex.id} video={step.ex.video} title={step.ex.name} autoplay />
@@ -352,7 +420,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
                 <SetLog key={`${step.ex.id}-${step.setNum}`} name={step.ex.name} setNum={step.setNum}
                   target={step.target} weightUnit={weightUnit} lang={lang} onLogSet={onLogSet}
                   initialReps={prevLogged ? String(prevLogged.reps) : ''}
-                  initialWeight={prevLogged && prevLogged.weightKg > 0 ? String(kgToDisplay(prevLogged.weightKg)) : ''} />
+                  initialWeight={prevLogged && prevLogged.weightKg > 0 ? String(kgToDisplay(prevLogged.weightKg)) : ''}
+                  weightPlaceholder={suggestion ? String(suggestion.value) : '0'} />
               );
             })() : onLog ? (
               <QuickLog key={step.ex.id} name={step.ex.name} unit={logUnitForScheme(step.target)} lang={lang} onLog={onLog} />
