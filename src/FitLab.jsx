@@ -1,27 +1,30 @@
 import { Check } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { ACTIVITY_FACTOR, ageNumber, calcBMI, calcBMR, calcWeeksToTarget, inToCm, lbToKg } from './calc.js';
-import { BodyweightLogModal } from './components/Bodyweight.jsx';
+import { BodyweightLogModal } from './components/BodyweightLogModal.jsx';
 import { FontStyles } from './components/FontStyles.jsx';
 import { SaveModal } from './components/SaveModal.jsx';
 import { challengeSessionExercises } from './data/challenge.js';
 import { getDiet } from './data/diets.js';
 import { STRETCH_ROUTINES, buildStretchRoutine } from './data/stretches.js';
-import { buildWeek } from './generate.js';
+import { applyPlanEdits, buildWeek } from './generate.js';
 import { isRTL, t } from './i18n.js';
 import { generatePrintHTML } from './print.js';
-import { GuidedPlayer } from './session/GuidedPlayer.jsx';
-import { GuidedWorkout } from './session/GuidedWorkout.jsx';
 import { RestTimer } from './session/RestTimer.jsx';
 import { buildAutoName, loadActivityLog, loadAllPlans, loadBodyweightLog, loadChallenge, loadPerfLog, loadSetLog, persistActivityLog, persistAllPlans, persistBodyweightLog, persistChallenge, persistPerfLog, persistSetLog, todayISO } from './storage.js';
 import { DARK, LIGHT, PALETTE, ThemeContext, applyTheme, readStoredTheme } from './theme.js';
-import { ChallengeView } from './views/ChallengeView.jsx';
-import { CustomBuilderView } from './views/CustomBuilderView.jsx';
 import { PickerView } from './views/PickerView.jsx';
-import { PlanView } from './views/PlanView.jsx';
-import { ProgressDashboard } from './views/ProgressDashboard.jsx';
-import { StretchPicker } from './views/StretchPicker.jsx';
-import { StretchPlanView } from './views/StretchPlanView.jsx';
+
+// Split per view: the picker (landing view) stays in the main chunk for a fast
+// first paint; everything else loads on navigation and is cached from then on.
+const PlanView = lazy(() => import('./views/PlanView.jsx').then((m) => ({ default: m.PlanView })));
+const ProgressDashboard = lazy(() => import('./views/ProgressDashboard.jsx').then((m) => ({ default: m.ProgressDashboard })));
+const ChallengeView = lazy(() => import('./views/ChallengeView.jsx').then((m) => ({ default: m.ChallengeView })));
+const StretchPicker = lazy(() => import('./views/StretchPicker.jsx').then((m) => ({ default: m.StretchPicker })));
+const StretchPlanView = lazy(() => import('./views/StretchPlanView.jsx').then((m) => ({ default: m.StretchPlanView })));
+const CustomBuilderView = lazy(() => import('./views/CustomBuilderView.jsx').then((m) => ({ default: m.CustomBuilderView })));
+const GuidedPlayer = lazy(() => import('./session/GuidedPlayer.jsx').then((m) => ({ default: m.GuidedPlayer })));
+const GuidedWorkout = lazy(() => import('./session/GuidedWorkout.jsx').then((m) => ({ default: m.GuidedWorkout })));
 export default function FitLab() {
   const [lang, setLang] = useState('en');
   const [theme, setTheme] = useState(readStoredTheme);
@@ -56,6 +59,7 @@ export default function FitLab() {
   const [weekNum, setWeekNum] = useState(1);
   const [swaps, setSwaps] = useState({});                     // { swapKey: offset }
   const [completions, setCompletions] = useState({});         // { dayCode: Set<swapKey> }
+  const [planEdits, setPlanEdits] = useState({});             // { `${dayCode}_${equip}`: {removed, added, order} }
   const [currentPlanId, setCurrentPlanId] = useState(null);   // null when ephemeral
 
   // Stretch state
@@ -141,7 +145,7 @@ export default function FitLab() {
         name,
         savedAt: Date.now(),
         inputs: { age, goals, split, units, sex, heightCm, heightFt, heightIn, weight, targetWeight },
-        progress: { weekNum, swaps, completions: serializeCompletions(completions) },
+        progress: { weekNum, swaps, completions: serializeCompletions(completions), edits: planEdits },
       };
     }
     const newList = currentPlanId
@@ -238,6 +242,7 @@ export default function FitLab() {
     setWeekNum(p.weekNum ?? 1);
     setSwaps(p.swaps ?? {});
     setCompletions(deserializeCompletions(p.completions));
+    setPlanEdits(p.edits ?? {});
     setCurrentPlanId(plan.id);
     setView(inputsComplete ? 'plan' : 'picker');
   };
@@ -250,14 +255,14 @@ export default function FitLab() {
     if (savedPlans[idx].type !== 'workout') return; // only generated workout plans have live progress
     const updated = {
       ...savedPlans[idx],
-      progress: { weekNum, swaps, completions: serializeCompletions(completions) },
+      progress: { weekNum, swaps, completions: serializeCompletions(completions), edits: planEdits },
     };
     const newList = [...savedPlans];
     newList[idx] = updated;
     setSavedPlans(newList);
     persistAllPlans(newList); // fire-and-forget
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekNum, swaps, completions, currentPlanId]);
+  }, [weekNum, swaps, completions, planEdits, currentPlanId]);
 
   // ---- Completion / swap handlers ----
 
@@ -348,7 +353,45 @@ export default function FitLab() {
     setWeekNum(1);
     setSwaps({});
     setCompletions({});
+    setPlanEdits({});
     setView('picker');
+  };
+
+  // ---- Plan editing (add / remove / reorder on a generated day) ----
+
+  const editTrackKey = (dayCode, equip) => `${dayCode}_${equip}`;
+  const handleRemoveExercise = (dayCode, equip, slotIdx) => {
+    setPlanEdits((prev) => {
+      const k = editTrackKey(dayCode, equip);
+      const e = { removed: [], added: [], order: [], ...(prev[k] || {}) };
+      if (typeof slotIdx === 'number') e.removed = [...e.removed, slotIdx];
+      else e.added = e.added.filter((a) => a.uid !== slotIdx); // user-added row
+      e.order = e.order.filter((o) => o !== String(slotIdx));
+      return { ...prev, [k]: e };
+    });
+  };
+  const handleMoveExercise = (dayCode, equip, slotIdx, dir) => {
+    const day = week?.find((d) => d.code === dayCode);
+    if (!day) return;
+    const keys = day[equip].map((ex) => String(ex.slotIdx)); // current displayed order
+    const i = keys.indexOf(String(slotIdx));
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    setPlanEdits((prev) => {
+      const k = editTrackKey(dayCode, equip);
+      return { ...prev, [k]: { removed: [], added: [], ...(prev[k] || {}), order: keys } };
+    });
+  };
+  const handleAddExercise = (dayCode, equip, exId, sets, reps) => {
+    setPlanEdits((prev) => {
+      const k = editTrackKey(dayCode, equip);
+      const e = { removed: [], added: [], order: [], ...(prev[k] || {}) };
+      const uid = 'add' + Math.random().toString(36).slice(2, 8);
+      e.added = [...e.added, { uid, exId, sets, reps }];
+      if (e.order.length) e.order = [...e.order, uid]; // keep explicit ordering consistent
+      return { ...prev, [k]: e };
+    });
   };
 
   // ---- Stretch handlers ----
@@ -432,7 +475,8 @@ export default function FitLab() {
   };
   const recordPerf = (name, value, unit) => {
     setPerfLog((prev) => {
-      const next = [...prev, { date: todayISO(), name, value, unit }];
+      // Cap the log: PRs only need bests, so keep the recent tail from growing forever.
+      const next = [...prev, { date: todayISO(), name, value, unit }].slice(-500);
       persistPerfLog(next);
       return next;
     });
@@ -515,8 +559,8 @@ export default function FitLab() {
 
   const week = useMemo(() => {
     if (!age || goals.length === 0 || !split) return null;
-    return buildWeek(split, age, goals, lang, swaps, weekNum);
-  }, [age, goals, split, lang, swaps, weekNum]);
+    return applyPlanEdits(buildWeek(split, age, goals, lang, swaps, weekNum), planEdits);
+  }, [age, goals, split, lang, swaps, weekNum, planEdits]);
 
   const stretchItems = useMemo(() => {
     if (!stretchRoutine) return [];
@@ -536,6 +580,7 @@ export default function FitLab() {
     >
       <FontStyles />
 
+      <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>
       {mode === 'progress' ? (
         <ProgressDashboard
           lang={lang} setLang={setLang}
@@ -637,6 +682,9 @@ export default function FitLab() {
           weekNum={weekNum} setWeekNum={setWeekNum}
           completions={completions} onToggleComplete={handleToggleComplete}
           onSwap={handleSwap}
+          onRemoveExercise={handleRemoveExercise}
+          onMoveExercise={handleMoveExercise}
+          onAddExercise={handleAddExercise}
           onPrint={handlePrint}
           bodyweightLog={bodyweightLog}
           currentWeightKg={computed?.weightKg}
@@ -648,6 +696,7 @@ export default function FitLab() {
           onStartWorkout={(exercises, label, dayName) => setWorkoutSession({ exercises, label, dayName, kind: 'workout' })}
         />
       )}
+      </Suspense>
 
       <SaveModal
         open={saveModalOpen}
@@ -679,15 +728,18 @@ export default function FitLab() {
       />
 
       {guidedOpen && (
+        <Suspense fallback={null}>
         <GuidedPlayer
           items={stretchItems}
           lang={lang}
           onClose={() => setGuidedOpen(false)}
           onComplete={() => recordActivity('stretch')}
         />
+        </Suspense>
       )}
 
       {workoutSession && (
+        <Suspense fallback={null}>
         <GuidedWorkout
           exercises={workoutSession.exercises}
           trackLabel={workoutSession.label}
@@ -701,6 +753,7 @@ export default function FitLab() {
           setHistory={setLog}
           weightUnit={units === 'metric' ? 'kg' : 'lb'}
         />
+        </Suspense>
       )}
 
       <BodyweightLogModal
@@ -722,6 +775,7 @@ export default function FitLab() {
 
       {toast && (
         <div
+          role="status" aria-live="polite"
           className="fixed bottom-6 z-[60] f-mono uppercase tracking-[0.2em] text-xs px-4 py-3 flex items-center gap-2 no-print"
           style={{
             background: PALETTE.ink, color: PALETTE.cream,

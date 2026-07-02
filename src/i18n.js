@@ -195,6 +195,13 @@ const STRINGS = {
     ws_weight: 'Weight',
     prog_lifts: 'Top lifts',
     prog_lifts_sub: 'Heaviest logged set per exercise.',
+    ed_edit_day: 'Edit day',
+    ed_done: 'Done',
+    ed_add: 'Add',
+    ed_pick: 'Choose exercise…',
+    ed_move_up: 'Move up',
+    ed_move_down: 'Move down',
+    ed_remove: 'Remove',
     prog_history: 'Session history',
     prog_history_sub: 'Every set you logged, day by day. Green squares above are clickable.',
     hist_summary: '{a} exercises · {b} sets',
@@ -521,6 +528,13 @@ const STRINGS = {
     ws_weight: 'משקל',
     prog_lifts: 'הרמות שיא',
     prog_lifts_sub: 'הסט הכבד ביותר שתועד לכל תרגיל.',
+    ed_edit_day: 'עריכת יום',
+    ed_done: 'סיום',
+    ed_add: 'הוספה',
+    ed_pick: 'בחרו תרגיל…',
+    ed_move_up: 'הזזה למעלה',
+    ed_move_down: 'הזזה למטה',
+    ed_remove: 'הסרה',
     prog_history: 'היסטוריית אימונים',
     prog_history_sub: 'כל סט שתיעדתם, יום אחר יום. הריבועים הירוקים למעלה לחיצים.',
     hist_summary: '{a} תרגילים · {b} סטים',
@@ -659,7 +673,8 @@ const STRINGS = {
 
 const t = (key, lang, params = {}) => {
   let s = STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
-  Object.entries(params).forEach(([k, v]) => { s = s.replace(`{${k}}`, v); });
+  // split/join = replace ALL occurrences (String.replace would only do the first)
+  Object.entries(params).forEach(([k, v]) => { s = s.split(`{${k}}`).join(v); });
   return s;
 };
 

@@ -1,10 +1,12 @@
 import { Bookmark, Save, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useEscapeClose } from '../hooks/useEscapeClose.js';
 import { isRTL, t } from '../i18n.js';
 import { PALETTE } from '../theme.js';
 function SaveModal({ open, onClose, defaultName, onSave, lang, status }) {
   const [name, setName] = useState(defaultName);
   useEffect(() => { if (open) setName(defaultName); }, [open, defaultName]);
+  useEscapeClose(open, onClose);
   if (!open) return null;
   const saving = status === 'saving';
 
@@ -19,6 +21,7 @@ function SaveModal({ open, onClose, defaultName, onSave, lang, status }) {
         style={{ background: PALETTE.cream, border: `1px solid ${PALETTE.ink}`, borderRadius: '4px' }}
         onClick={(e) => e.stopPropagation()}
         dir={isRTL(lang) ? 'rtl' : 'ltr'}
+        role="dialog" aria-modal="true" aria-label={t('save_plan', lang)}
       >
         <button
           onClick={onClose}

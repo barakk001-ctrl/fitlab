@@ -98,6 +98,12 @@ function FontStyles() {
       }
       .timer-pulse { animation: pulse 1s ease-in-out infinite; }
 
+      @media (prefers-reduced-motion: reduce) {
+        .rise, .meal-flash, .timer-pulse { animation: none !important; }
+        .card-tilt { transform: none !important; }
+        * { transition-duration: 0.01ms !important; }
+      }
+
       /* Rest timer duration slider */
       .rest-slider {
         -webkit-appearance: none;

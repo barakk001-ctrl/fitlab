@@ -147,6 +147,46 @@ function buildWeek(splitId, age, goals, lang, swaps = {}, weekNum = 1) {
   });
 }
 
+// User edits layered onto a generated week, keyed by `${dayCode}_${equip}`:
+//   { removed: [slotIdx|uid...], added: [{uid, exId, sets, reps}...], order: [String(slotIdx)...] }
+// Generated rows are identified by numeric slotIdx, user-added rows by their uid
+// (stored in slotIdx so swap/completion keys stay unique). Added rows use a fixed
+// sets × reps prescription (no weekly progression) and can't be swapped.
+function applyPlanEdits(week, edits) {
+  if (!edits || Object.keys(edits).length === 0) return week;
+  const applyTrack = (day, track, equip) => {
+    const e = edits[`${day.code}_${equip}`];
+    if (!e) return track;
+    const removed = new Set((e.removed || []).map(String));
+    let rows = track.filter((ex) => !removed.has(String(ex.slotIdx)));
+    (e.added || []).forEach((a) => {
+      const ex = EX[a.exId];
+      if (!ex) return;
+      rows.push({
+        ...ex,
+        id: a.exId,
+        video: EX_VIDEOS[a.exId] || null,
+        prescription: `${a.sets} × ${a.reps}`,
+        slot: ex.movement,
+        slotIdx: a.uid,
+        equip,
+        dayCode: day.code,
+        totalAlternatives: 0,
+        restSeconds: 90,
+        userAdded: true,
+      });
+    });
+    if (e.order && e.order.length) {
+      const pos = new Map(e.order.map((k, i) => [k, i]));
+      rows = [...rows].sort((x, y) =>
+        (pos.has(String(x.slotIdx)) ? pos.get(String(x.slotIdx)) : 999) -
+        (pos.has(String(y.slotIdx)) ? pos.get(String(y.slotIdx)) : 999));
+    }
+    return rows;
+  };
+  return week.map((day) => ({ ...day, gym: applyTrack(day, day.gym, 'gym'), cali: applyTrack(day, day.cali, 'cali') }));
+}
+
 // ------------------------------------------------------------
 // Plan note text
 // ------------------------------------------------------------
@@ -175,4 +215,4 @@ function getPlanNote(goals, age, splitId, lang) {
 // Stretch / flexibility data layer
 // ------------------------------------------------------------
 
-export { getAllCandidates, getRestSeconds, applyWeekProgression, getBasePrescription, getPrescription, buildWeek, getPlanNote };
+export { getAllCandidates, getRestSeconds, applyWeekProgression, getBasePrescription, getPrescription, buildWeek, applyPlanEdits, getPlanNote };

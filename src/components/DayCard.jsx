@@ -1,10 +1,12 @@
-import { Activity, Check, CheckCircle2, Dumbbell, ExternalLink, Play, Shuffle, Timer } from 'lucide-react';
+import { Activity, Check, CheckCircle2, ChevronDown, ChevronUp, Dumbbell, ExternalLink, Pencil, Play, Plus, Shuffle, Timer, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { ytSearch } from '../calc.js';
+import { EX } from '../data/exercises.js';
 import { t } from '../i18n.js';
 import { PALETTE } from '../theme.js';
 import { Pill } from './shared.jsx';
 import { StretchVideo } from './video.jsx';
-function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, onSwap, onStartTimer }) {
+function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, onSwap, onStartTimer, editing, onRemove, onMove, isFirst, isLast }) {
   const swapKey = `${ex.dayCode}_${ex.slotIdx}_${ex.equip}`;
   return (
     <div
@@ -16,6 +18,7 @@ function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, on
         onClick={() => onToggleComplete(swapKey)}
         className={`complete-circle mt-1 no-print ${isDone ? 'is-done' : ''}`}
         style={{ color: dark ? PALETTE.sage : PALETTE.rust }}
+        aria-pressed={isDone}
         aria-label={isDone ? t('completed', lang) : t('mark_complete', lang)}
         title={isDone ? t('completed', lang) : t('mark_complete', lang)}
       >
@@ -39,6 +42,21 @@ function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, on
           </div>
         </div>
         <div className="f-mono text-[10px] uppercase tracking-[0.2em] mt-1 flex items-center gap-3 flex-wrap" style={{ color: accent, opacity: 0.85 }}>
+          {editing && (
+            <span className="no-print inline-flex items-center gap-1.5">
+              <button onClick={() => onMove(-1)} disabled={isFirst} aria-label={t('ed_move_up', lang)}
+                style={{ color: 'inherit', opacity: isFirst ? 0.3 : 1, cursor: isFirst ? 'not-allowed' : 'pointer' }}>
+                <ChevronUp size={14} strokeWidth={2} />
+              </button>
+              <button onClick={() => onMove(1)} disabled={isLast} aria-label={t('ed_move_down', lang)}
+                style={{ color: 'inherit', opacity: isLast ? 0.3 : 1, cursor: isLast ? 'not-allowed' : 'pointer' }}>
+                <ChevronDown size={14} strokeWidth={2} />
+              </button>
+              <button onClick={onRemove} aria-label={t('ed_remove', lang)} style={{ color: 'inherit' }}>
+                <Trash2 size={12} strokeWidth={2} />
+              </button>
+            </span>
+          )}
           <a href={ytSearch(ex.query)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 underline-hover">
             {t('watch_form', lang)} <ExternalLink size={11} strokeWidth={2} />
           </a>
@@ -67,7 +85,46 @@ function ExerciseRow({ idx, ex, accent, dark, lang, isDone, onToggleComplete, on
   );
 }
 
-function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStartTimer, onStartWorkout }) {
+// Inline "add exercise" form shown in edit mode at the bottom of a track.
+function AddExerciseRow({ equip, lang, dark, onAdd }) {
+  const [exId, setExId] = useState('');
+  const [sets, setSets] = useState(3);
+  const [reps, setReps] = useState(10);
+  const options = Object.entries(EX)
+    .filter(([, e]) => e.equip === equip)
+    .sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const fieldStyle = {
+    background: 'transparent',
+    color: dark ? PALETTE.cream : PALETTE.ink,
+    border: `1px solid ${dark ? 'rgba(242,235,221,0.4)' : 'rgba(27,27,25,0.4)'}`,
+    borderRadius: '999px', padding: '5px 10px',
+  };
+  return (
+    <div className="no-print flex items-center gap-2 flex-wrap pt-3 mt-1" dir="ltr"
+      style={{ borderTop: `1px dashed ${dark ? 'rgba(242,235,221,0.25)' : 'rgba(27,27,25,0.25)'}` }}>
+      <select value={exId} onChange={(e) => setExId(e.target.value)} aria-label={t('ed_pick', lang)}
+        className="f-mono text-[11px]" style={{ ...fieldStyle, maxWidth: 180 }}>
+        <option value="">{t('ed_pick', lang)}</option>
+        {options.map(([id, e]) => <option key={id} value={id}>{e.name}</option>)}
+      </select>
+      <input type="number" min={1} max={10} value={sets} onChange={(e) => setSets(parseInt(e.target.value, 10) || 1)}
+        aria-label={t('build_sets', lang)} className="f-mono text-[11px] text-center" style={{ ...fieldStyle, width: 48 }} />
+      <span className="f-mono text-[10px]" style={{ opacity: 0.5 }}>×</span>
+      <input type="number" min={1} max={50} value={reps} onChange={(e) => setReps(parseInt(e.target.value, 10) || 1)}
+        aria-label={t('build_reps', lang)} className="f-mono text-[11px] text-center" style={{ ...fieldStyle, width: 48 }} />
+      <button onClick={() => { if (exId) { onAdd(exId, sets, reps); setExId(''); } }}
+        disabled={!exId}
+        className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
+        style={{ ...fieldStyle, opacity: exId ? 1 : 0.45, cursor: exId ? 'pointer' : 'not-allowed' }}>
+        <Plus size={11} strokeWidth={2.5} /> {t('ed_add', lang)}
+      </button>
+    </div>
+  );
+}
+
+function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onRemoveExercise, onMoveExercise, onAddExercise, onStartTimer, onStartWorkout }) {
+  const [editing, setEditing] = useState(false);
+  const canEdit = Boolean(onRemoveExercise && onMoveExercise && onAddExercise);
   const dayDoneSet = completions[day.code] || new Set();
   const totalEx = day.gym.length + day.cali.length;
   const doneCount = dayDoneSet.size;
@@ -98,6 +155,19 @@ function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStar
               </Pill>
             )}
             <Pill color={PALETTE.ink}>{day.code}</Pill>
+            {canEdit && (
+              <button onClick={() => setEditing((e) => !e)}
+                className="no-print f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
+                aria-pressed={editing}
+                style={{
+                  background: editing ? PALETTE.ink : 'transparent',
+                  color: editing ? PALETTE.cream : PALETTE.ink,
+                  border: `1px solid ${PALETTE.ink}`, borderRadius: '999px',
+                }}>
+                {editing ? <Check size={11} strokeWidth={2.5} /> : <Pencil size={11} strokeWidth={2} />}
+                {editing ? t('ed_done', lang) : t('ed_edit_day', lang)}
+              </button>
+            )}
           </div>
         </div>
 
@@ -128,9 +198,14 @@ function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStar
                     onToggleComplete={(k) => onToggleComplete(day.code, k)}
                     onSwap={onSwap}
                     onStartTimer={onStartTimer}
+                    editing={editing}
+                    isFirst={i === 0} isLast={i === day.gym.length - 1}
+                    onRemove={() => onRemoveExercise(day.code, 'gym', ex.slotIdx)}
+                    onMove={(dir) => onMoveExercise(day.code, 'gym', ex.slotIdx, dir)}
                   />
                 );
               })}
+              {editing && <AddExerciseRow equip="gym" lang={lang} onAdd={(exId, sets, reps) => onAddExercise(day.code, 'gym', exId, sets, reps)} />}
             </div>
           </div>
 
@@ -160,9 +235,14 @@ function DayCard({ day, idx, lang, completions, onToggleComplete, onSwap, onStar
                     onToggleComplete={(k) => onToggleComplete(day.code, k)}
                     onSwap={onSwap}
                     onStartTimer={onStartTimer}
+                    editing={editing}
+                    isFirst={i === 0} isLast={i === day.cali.length - 1}
+                    onRemove={() => onRemoveExercise(day.code, 'cali', ex.slotIdx)}
+                    onMove={(dir) => onMoveExercise(day.code, 'cali', ex.slotIdx, dir)}
                   />
                 );
               })}
+              {editing && <AddExerciseRow equip="cali" dark lang={lang} onAdd={(exId, sets, reps) => onAddExercise(day.code, 'cali', exId, sets, reps)} />}
             </div>
           </div>
         </div>

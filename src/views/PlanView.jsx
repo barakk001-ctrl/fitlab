@@ -13,6 +13,7 @@ function PlanView({
   weekNum, setWeekNum,
   completions, onToggleComplete,
   onSwap,
+  onRemoveExercise, onMoveExercise, onAddExercise,
   onPrint,
   bodyweightLog, currentWeightKg, targetKg, units, onOpenWeightLog, onDeleteWeightEntry,
   onStartTimer, onStartWorkout,
@@ -206,6 +207,9 @@ function PlanView({
               completions={completions}
               onToggleComplete={onToggleComplete}
               onSwap={onSwap}
+              onRemoveExercise={onRemoveExercise}
+              onMoveExercise={onMoveExercise}
+              onAddExercise={onAddExercise}
               onStartTimer={onStartTimer}
               onStartWorkout={onStartWorkout}
             />
