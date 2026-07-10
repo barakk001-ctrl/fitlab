@@ -165,6 +165,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const workEndRef = useRef(0);
   // One server-push slot per session — rescheduling the same id replaces it.
   const pushIdRef = useRef('gw-' + Math.random().toString(36).slice(2, 10));
+  const pushArmedRef = useRef(false); // a server push is scheduled for the running timer
   useEffect(() => () => cancelPush(pushIdRef.current), []); // never fire after close
 
   useEffect(() => { if (finished) onComplete?.(); }, [finished]);
@@ -187,12 +188,16 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
       if (left <= 0) {
         if (!ended) {
           ended = true;
-          cancelPush(pushIdRef.current);
-          // Alert only when the rest *just* ended; a stale expiry means the page
-          // was suspended past the end and the server push already alerted —
-          // re-alerting here would duplicate the notification on return.
-          if (Date.now() - restEndRef.current < 3000) {
-            playBeep(220, 760); buzz();
+          const fresh = Date.now() - restEndRef.current < 3000; // stale = suspended past end; push already alerted
+          const hidden = document.visibilityState === 'hidden';
+          if (!hidden) {
+            cancelPush(pushIdRef.current);
+            pushArmedRef.current = false;
+            if (fresh) { playBeep(220, 760); buzz(); }
+          } else if (!pushArmedRef.current && fresh) {
+            // Backgrounded with no push armed — local notification as fallback.
+            // With a push armed we stay silent: cancelling from a backgrounded
+            // page can lose the race and produce a double notification.
             notify(t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
           }
         }
@@ -226,9 +231,13 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
       if (left <= 0) {
         if (!ended) {
           ended = true;
-          cancelPush(pushIdRef.current);
-          if (Date.now() - workEndRef.current < 3000) { // see rest tick — no re-alert on stale expiry
-            playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]);
+          const fresh = Date.now() - workEndRef.current < 3000;
+          const hidden = document.visibilityState === 'hidden';
+          if (!hidden) { // see rest tick for the reasoning
+            cancelPush(pushIdRef.current);
+            pushArmedRef.current = false;
+            if (fresh) { playBeep(320, 880); setTimeout(() => playBeep(320, 1040), 300); buzz([200, 80, 200]); }
+          } else if (!pushArmedRef.current && fresh) {
             notify(t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
           }
         }
@@ -242,7 +251,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
   }, [workActive]);
 
-  const stopTimers = () => { cancelPush(pushIdRef.current); setRestLeft(0); setWorkLeft(0); setCountIn(0); };
+  const stopTimers = () => { cancelPush(pushIdRef.current); pushArmedRef.current = false; setRestLeft(0); setWorkLeft(0); setCountIn(0); };
   const next = () => {
     stopTimers();
     if (isLast) {
@@ -254,7 +263,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   };
   const prev = () => { stopTimers(); setStepIdx((i) => Math.max(0, i - 1)); };
   const schedulePushForRest = (seconds) =>
-    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '');
+    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '')
+      .then((ok) => { pushArmedRef.current = ok; });
   const startRest = () => {
     // Permission prompt must come from this user gesture (iOS requirement);
     // once granted, the server push covers the page being suspended.
@@ -269,7 +279,10 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const startWork = () => {
     if (!timedSec) return;
     ensureNotifyPermission().then((ok) => {
-      if (ok) schedulePush(pushIdRef.current, 3 + timedSec, t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '');
+      if (ok) {
+        schedulePush(pushIdRef.current, 3 + timedSec, t('notif_work_done', lang), step ? t('notif_set_done', lang, { name: step.ex.name }) : '')
+          .then((armed) => { pushArmedRef.current = armed; });
+      }
     });
     setWorkTotal(timedSec);
     setCountIn(3);
@@ -469,7 +482,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
               <SkipForward size={14} strokeWidth={2.5} /> {t('ws_skip_rest', lang)}
             </button>
           ) : resting ? (
-            <button onClick={() => { cancelPush(pushIdRef.current); setRestLeft(0); }}
+            <button onClick={() => { cancelPush(pushIdRef.current); pushArmedRef.current = false; setRestLeft(0); }}
               className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
               style={{ background: PALETTE.cream, color: PALETTE.ink, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', minWidth: 160, justifyContent: 'center' }}>
               <SkipForward size={14} strokeWidth={2.5} /> {t('ws_skip_rest', lang)}

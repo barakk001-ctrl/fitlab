@@ -11,20 +11,29 @@ function RestTimer({ exercise, lang, onClose }) {
   const [done, setDone] = useState(false);
 
   const pushIdRef = useRef('rt-' + Math.random().toString(36).slice(2, 10));
+  const pushArmedRef = useRef(false); // a server push is scheduled for this timer
   const timer = useCountdown((overdueMs) => {
     setDone(true);
-    cancelPush(pushIdRef.current);
-    // Only alert when the timer *just* ended. A stale expiry means the page was
-    // suspended past the end — the server push already alerted, so re-alerting
-    // here would duplicate the notification the user tapped to get back.
-    if (overdueMs < 3000) {
-      playBeep(220, 880);
-      setTimeout(() => playBeep(220, 880), 280);
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    if (!hidden) {
+      // Visible ending: the beep covers it; make sure no push follows.
+      cancelPush(pushIdRef.current);
+      pushArmedRef.current = false;
+      if (overdueMs < 3000) { // stale expiry = we were suspended; the push already alerted
+        playBeep(220, 880);
+        setTimeout(() => playBeep(220, 880), 280);
+      }
+    } else if (!pushArmedRef.current && overdueMs < 3000) {
+      // Backgrounded with no push armed — the local notification is the fallback.
+      // With a push armed we post NOTHING here: cancelling from a backgrounded
+      // page can lose the race and the user would get both notifications.
       notify(t('notif_rest_done', lang), exercise?.name || '');
     }
   });
   const { secondsLeft, paused } = timer;
-  const schedule = (seconds) => schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), exercise?.name || '');
+  const schedule = (seconds) =>
+    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), exercise?.name || '')
+      .then((ok) => { pushArmedRef.current = ok; });
 
   // The timer opens from a click, so the transient activation usually still
   // covers this request; where it doesn't (iOS), the guided workout's rest
@@ -115,7 +124,7 @@ function RestTimer({ exercise, lang, onClose }) {
         {!done ? (
           <button onClick={() => {
             if (paused) { timer.resume(); schedule(Math.max(1, timer.secondsLeft)); }
-            else { timer.pause(); cancelPush(pushIdRef.current); }
+            else { timer.pause(); cancelPush(pushIdRef.current); pushArmedRef.current = false; }
           }}
             className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-3 py-1.5"
             style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid ${PALETTE.cream}`, borderRadius: '999px', cursor: 'pointer' }}>
