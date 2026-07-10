@@ -659,6 +659,7 @@ export default function FitLab() {
           onPickAge={setAge} onToggleGoal={toggleGoal} onPickSplit={setSplit}
           onSubmit={() => age && goals.length && split && statsValid && setView('plan')}
           onBuildOwn={() => setView('custom')}
+          onOpenTimer={() => setActiveTimer({ name: '', restSeconds: 60 })}
           units={units} setUnits={setUnits}
           sex={sex} setSex={setSex}
           heightCm={heightCm} setHeightCm={setHeightCm}

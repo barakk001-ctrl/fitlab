@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ListChecks, Ruler, Scale, Sparkles, Target, User } from 'lucide-react';
+import { CalendarDays, Check, ListChecks, Ruler, Scale, Sparkles, Target, Timer, User } from 'lucide-react';
 import { SavedPlansSection } from '../components/SavedPlansSection.jsx';
 import { MastHead, Pill, StatField } from '../components/shared.jsx';
 import { AGE_GROUPS, GOALS, SPLITS } from '../data/plans.js';
@@ -119,7 +119,7 @@ function PickerView(props) {
     weight, setWeight, targetWeight, setTargetWeight,
     statsValid, setLang,
     savedPlans, onLoadPlan, onDeletePlan,
-    mode, setMode, onBuildOwn,
+    mode, setMode, onBuildOwn, onOpenTimer,
   } = props;
   const goalsValid = goals.length >= 1 && goals.length <= 3;
   const ready = age && goalsValid && split && statsValid;
@@ -141,11 +141,20 @@ function PickerView(props) {
         <p className="f-body mt-8 max-w-xl text-base md:text-lg leading-relaxed" style={{ color: PALETTE.ink, opacity: 0.78 }}>
           {t('hero_subtitle', lang)}
         </p>
-        <button onClick={onBuildOwn}
-          className="mt-7 f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 px-5 py-3 no-print"
-          style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
-          <ListChecks size={13} strokeWidth={2} /> {t('build_own', lang)}
-        </button>
+        <div className="mt-7 flex items-center gap-3 flex-wrap no-print">
+          <button onClick={onBuildOwn}
+            className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 px-5 py-3"
+            style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+            <ListChecks size={13} strokeWidth={2} /> {t('build_own', lang)}
+          </button>
+          {onOpenTimer && (
+            <button onClick={onOpenTimer}
+              className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 px-5 py-3"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              <Timer size={13} strokeWidth={2} /> {t('open_timer', lang)}
+            </button>
+          )}
+        </div>
       </section>
 
       <SavedPlansSection
