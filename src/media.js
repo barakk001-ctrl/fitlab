@@ -146,4 +146,62 @@ function cancelPush(id) {
   } catch {}
 }
 
-export { IS_IOS, startPhoneTimer, playBeep, buzz, ensureNotifyPermission, notify, schedulePush, cancelPush };
+// ------------------------------------------------------------
+// Daily physio reminder — the server sends a push every day at the chosen
+// local time. The preference lives in localStorage and re-registers with the
+// server on every app open (heals server restarts/redeploys).
+// ------------------------------------------------------------
+
+const REMINDER_PREF_KEY = 'fitlab:physio-reminder';
+
+function readReminderPref() {
+  try { return JSON.parse(window.localStorage.getItem(REMINDER_PREF_KEY)) || null; } catch { return null; }
+}
+function writeReminderPref(pref) {
+  try {
+    if (pref) window.localStorage.setItem(REMINDER_PREF_KEY, JSON.stringify(pref));
+    else window.localStorage.removeItem(REMINDER_PREF_KEY);
+  } catch {}
+}
+
+// Register (or move) the daily reminder. title/body arrive pre-localized.
+async function setDailyReminder(hour, minute, title, body) {
+  try {
+    const sub = await getPushSubscription();
+    if (!sub) return false;
+    const res = await fetch('/api/reminder/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: sub.toJSON(), hour, minute,
+        tzOffsetMinutes: -new Date().getTimezoneOffset(),
+        title, body,
+      }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+async function clearDailyReminder() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return true;
+    await fetch('/api/reminder/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    return true;
+  } catch { return false; }
+}
+
+// Called once on app boot: re-upsert a stored reminder (also refreshes the
+// timezone offset across DST changes). No-op without permission or pref.
+function rearmReminderFromStorage() {
+  const pref = readReminderPref();
+  if (!pref?.enabled || !canNotify() || Notification.permission !== 'granted') return;
+  setDailyReminder(pref.hour, pref.minute, pref.title, pref.body);
+}
+
+export { IS_IOS, startPhoneTimer, playBeep, buzz, ensureNotifyPermission, notify, schedulePush, cancelPush, readReminderPref, writeReminderPref, setDailyReminder, clearDailyReminder, rearmReminderFromStorage };

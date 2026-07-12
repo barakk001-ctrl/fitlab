@@ -9,6 +9,7 @@ import { getDiet } from './data/diets.js';
 import { STRETCH_ROUTINES, buildStretchRoutine } from './data/stretches.js';
 import { applyPlanEdits, buildWeek } from './generate.js';
 import { isRTL, t } from './i18n.js';
+import { rearmReminderFromStorage } from './media.js';
 import { generatePrintHTML } from './print.js';
 import { RestTimer } from './session/RestTimer.jsx';
 import { buildAutoName, loadActivityLog, loadAllPlans, loadBodyweightLog, loadChallenge, loadPerfLog, loadSetLog, persistActivityLog, persistAllPlans, persistBodyweightLog, persistChallenge, persistPerfLog, persistSetLog, todayISO } from './storage.js';
@@ -106,6 +107,7 @@ export default function FitLab() {
     loadActivityLog().then(a => { if (!cancelled) setActivityLog(a); });
     loadPerfLog().then(p => { if (!cancelled) setPerfLog(p); });
     loadSetLog().then(s => { if (!cancelled) setSetLog(s); });
+    rearmReminderFromStorage(); // keep the daily physio reminder alive across server restarts
     return () => { cancelled = true; };
   }, []);
 

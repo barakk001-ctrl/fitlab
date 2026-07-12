@@ -39,7 +39,82 @@ const MAX_PENDING = 1000;
 // the race; a suspended client can't cancel, so the push goes out.
 const GRACE_MS = 2000;
 
-app.get('/api/health', (req, res) => res.json({ ok: true, push: pushEnabled, pending: pending.size }));
+// ------------------------------------------------------------
+// Daily reminders. Persisted to /data (Railway volume) when present,
+// else a local file — plus the client re-registers on every app open,
+// so a lost store heals itself as soon as the user opens the app.
+// Entry: endpoint -> { subscription, hour, minute, tzOffsetMinutes,
+//                      title, body, lastSentDay }
+// ------------------------------------------------------------
+const REMINDER_FILE = fs.existsSync('/data')
+  ? '/data/reminders.json'
+  : path.join(__dirname, '.reminders.json');
+const reminders = new Map();
+try {
+  if (fs.existsSync(REMINDER_FILE)) {
+    for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(REMINDER_FILE, 'utf8')))) reminders.set(k, v);
+    console.log(`loaded ${reminders.size} reminder(s) from ${REMINDER_FILE}`);
+  }
+} catch (e) { console.warn('reminder store load failed:', e.message); }
+function persistReminders() {
+  try { fs.writeFileSync(REMINDER_FILE, JSON.stringify(Object.fromEntries(reminders))); }
+  catch (e) { console.warn('reminder store save failed:', e.message); }
+}
+
+const REMINDER_TICK_MS = parseInt(process.env.REMINDER_TICK_MS || '60000', 10);
+setInterval(async () => {
+  if (!pushEnabled || reminders.size === 0) return;
+  const now = Date.now();
+  for (const [endpoint, r] of reminders) {
+    // Shift to the user's local clock, then read with UTC getters.
+    const local = new Date(now + r.tzOffsetMinutes * 60000);
+    const day = local.toISOString().slice(0, 10);
+    const hm = local.getUTCHours() * 60 + local.getUTCMinutes();
+    const target = r.hour * 60 + r.minute;
+    if (hm >= target && hm < target + 5 && r.lastSentDay !== day) {
+      r.lastSentDay = day;
+      persistReminders();
+      console.log(`reminder due -> sending to ...${endpoint.slice(-16)}`);
+      try {
+        await webpush.sendNotification(r.subscription, JSON.stringify({ title: r.title, body: r.body, tag: 'fitlab-reminder' }), { TTL: 3600 });
+      } catch (e) {
+        console.warn('reminder send failed:', e.statusCode || e.message);
+        if (e.statusCode === 404 || e.statusCode === 410) { reminders.delete(endpoint); persistReminders(); } // subscription gone
+      }
+    }
+  }
+}, REMINDER_TICK_MS);
+
+app.post('/api/reminder/set', (req, res) => {
+  if (!pushEnabled) return res.status(503).json({ ok: false, error: 'push disabled' });
+  const { subscription, hour, minute, tzOffsetMinutes, title, body } = req.body || {};
+  if (!subscription || typeof subscription.endpoint !== 'string' ||
+      !subscription.endpoint.startsWith('https://') || subscription.endpoint.length > 1000) {
+    return res.status(400).json({ ok: false, error: 'bad subscription' });
+  }
+  const h = Number(hour), m = Number(minute), tz = Number(tzOffsetMinutes);
+  if (!Number.isInteger(h) || h < 0 || h > 23 || !Number.isInteger(m) || m < 0 || m > 59 ||
+      !Number.isFinite(tz) || tz < -840 || tz > 840) {
+    return res.status(400).json({ ok: false, error: 'bad time' });
+  }
+  if (typeof title !== 'string' || title.length > 120 || typeof body !== 'string' || body.length > 200) {
+    return res.status(400).json({ ok: false, error: 'bad payload' });
+  }
+  if (!reminders.has(subscription.endpoint) && reminders.size >= 500) return res.status(429).json({ ok: false });
+  reminders.set(subscription.endpoint, { subscription, hour: h, minute: m, tzOffsetMinutes: tz, title, body, lastSentDay: null });
+  persistReminders();
+  res.json({ ok: true });
+});
+
+app.post('/api/reminder/clear', (req, res) => {
+  const { endpoint } = req.body || {};
+  if (typeof endpoint !== 'string') return res.status(400).json({ ok: false });
+  const existed = reminders.delete(endpoint);
+  if (existed) persistReminders();
+  res.json({ ok: true, cleared: existed });
+});
+
+app.get('/api/health', (req, res) => res.json({ ok: true, push: pushEnabled, pending: pending.size, reminders: reminders.size }));
 app.get('/api/push/pubkey', (req, res) => res.json({ key: pushEnabled ? VAPID_PUBLIC_KEY : null }));
 
 app.post('/api/push/schedule', (req, res) => {

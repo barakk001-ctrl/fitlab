@@ -1,4 +1,4 @@
-import { ArrowLeft, HeartPulse, Play } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, HeartPulse, Play } from 'lucide-react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { StretchVideo } from '../components/video.jsx';
@@ -6,8 +6,72 @@ import { MastHead, Pill } from '../components/shared.jsx';
 import { PHYSIO_AREAS } from '../data/physio.js';
 import { estimateRoutineDuration } from '../data/stretches.js';
 import { isRTL, t } from '../i18n.js';
+import { clearDailyReminder, ensureNotifyPermission, readReminderPref, setDailyReminder, writeReminderPref } from '../media.js';
 import { PALETTE } from '../theme.js';
 import { GuidedPlayer } from '../session/GuidedPlayer.jsx';
+
+// Daily reminder card: pick a time, toggle on/off. The preference is stored
+// locally and re-registered with the server on every app open.
+function ReminderCard({ lang }) {
+  const stored = readReminderPref();
+  const [time, setTime] = useState(stored ? `${String(stored.hour).padStart(2, '0')}:${String(stored.minute).padStart(2, '0')}` : '18:00');
+  const [enabled, setEnabled] = useState(Boolean(stored?.enabled));
+  const [busy, setBusy] = useState(false);
+
+  const apply = async (nextTime, nextEnabled) => {
+    setBusy(true);
+    const [h, m] = nextTime.split(':').map((x) => parseInt(x, 10));
+    if (nextEnabled) {
+      const ok = await ensureNotifyPermission();
+      const title = t('notif_physio_title', lang);
+      const body = t('notif_physio_body', lang);
+      const set = ok && await setDailyReminder(h, m, title, body);
+      if (set) {
+        writeReminderPref({ enabled: true, hour: h, minute: m, title, body });
+        setEnabled(true);
+      } else {
+        setEnabled(false);
+      }
+    } else {
+      await clearDailyReminder();
+      writeReminderPref(null);
+      setEnabled(false);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="p-5 md:p-6 mt-6 flex items-center justify-between gap-4 flex-wrap"
+      style={{ background: PALETTE.paper, border: `1px solid ${PALETTE.ink}`, borderRadius: '4px' }}>
+      <div className="min-w-0">
+        <div className="f-display font-bold text-lg md:text-xl" style={{ color: PALETTE.ink }}>
+          {t('physio_reminder', lang)}
+        </div>
+        <p className="f-italic text-sm mt-1" style={{ opacity: 0.65 }}>
+          {enabled ? t('reminder_active', lang, { t: time }) : t('physio_reminder_sub', lang)}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap no-print" dir="ltr">
+        <input type="time" value={time}
+          onChange={(e) => { const v = e.target.value || '18:00'; setTime(v); if (enabled) apply(v, true); }}
+          aria-label={t('physio_reminder', lang)}
+          className="f-mono text-sm px-3 py-2"
+          style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }} />
+        <button onClick={() => apply(time, !enabled)} disabled={busy}
+          className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-1.5 px-4 py-2.5"
+          style={{
+            background: enabled ? PALETTE.forest : 'transparent',
+            color: enabled ? PALETTE.cream : PALETTE.ink,
+            border: `1px solid ${enabled ? PALETTE.forest : PALETTE.ink}`,
+            borderRadius: '999px', opacity: busy ? 0.6 : 1, cursor: busy ? 'wait' : 'pointer',
+          }}>
+          {enabled ? <BellOff size={12} strokeWidth={2} /> : <Bell size={12} strokeWidth={2} />}
+          {enabled ? t('reminder_disable', lang) : t('reminder_enable', lang)}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PhysioRow({ idx, item, lang }) {
   return (
@@ -80,6 +144,7 @@ function PhysioView({ lang, setLang, mode, setMode, onComplete }) {
               );
             })}
           </div>
+          <ReminderCard lang={lang} />
         </section>
       ) : (
         <>

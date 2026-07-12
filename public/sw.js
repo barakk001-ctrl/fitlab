@@ -1,6 +1,6 @@
 // FitLab service worker — app-shell offline support.
 // Bump CACHE when the shell list changes to evict old caches.
-const CACHE = 'fitlab-v3';
+const CACHE = 'fitlab-v4';
 const CORE = [
   '/',
   '/index.html',
@@ -33,7 +33,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'FitLab', {
       body: data.body || '',
-      tag: 'fitlab-timer',
+      tag: data.tag || 'fitlab-timer',
       renotify: true,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
