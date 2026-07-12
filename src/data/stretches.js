@@ -185,6 +185,12 @@ const STRETCH_VIDEOS = {
 // Populated from frame-by-frame analysis of each video. Videos that already
 // open on the movement are omitted (start 0).
 const VIDEO_START = {
+  // Physio videos (frame-sheet analysis, 2026-07): skip intro talk / title cards.
+  'Eaj_NG5_hIo': 12,  // Wall Slides — empty set until the demo walks in
+  'jly4Mp1yLvE': 65,  // Isometric Neck — talking head until the band demo
+  'QooK7w_zyLE': 45,  // Eccentric Wrist Curls — intro chat, demo from 45s
+  'nfJ5QCx_fSg': 148, // Band TKE — floor progressions first; banded version at 148s
+  'JaZNYM3zAP0': 30,  // Wall Sit — 'the right way' demo starts ~30s (supersedes old 6s)
   '54y0JAT46vE': 23, 'u8C5LgpK3r4': 11, 'YVeNysiuHz0': 23, 'aIq0fLi8iak': 5,
   'IKJZL4hvppw': 34, 'Dmm8_S23I74': 35, 'UomKzkyp6kQ': 12, 'M850sCj9LHQ': 14,
   'ajyYXAERp3k': 32, 'YYudWYM5Q9g': 6, 'kH12QrSGedM': 10, 'LugNxxfIdvo': 6,
@@ -203,7 +209,7 @@ const VIDEO_START = {
   'D0GwAezTvtg': 21, 'nAWIl3ABckM': 26, 'Hbh_bMsSJzA': 8, '4zWu1yuJ0_g': 2,
   'Pbmj6xPo-Hw': 2, '94AXT7D3bKY': 16, 'dQqApCGd5Ss': 11, 'I34ysEkPK7w': 11,
   'vl5nUdE9mWM': 19, 'YyvSfVjQeL0': 54, '8e-xsVYFCVA': 44, '2tFpdTfIbKw': 2,
-  'qTiqOyqQGs8': 11, '7p-Ma0eksaY': 4, 'aCcdDB_Y13g': 60, 'JaZNYM3zAP0': 6,
+  'qTiqOyqQGs8': 11, '7p-Ma0eksaY': 4, 'aCcdDB_Y13g': 60,
   'hhq86gJvrvo': 10, 'gKA5LBy7WAI': 5, 'jGR2LTqGI2Y': 16, '9ZknEYboBOQ': 7,
 };
 
