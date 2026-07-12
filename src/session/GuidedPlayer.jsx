@@ -1,4 +1,4 @@
-import { Check, Pause, Play, RefreshCw, RotateCcw, SkipForward, StretchHorizontal, X } from 'lucide-react';
+import { ArrowLeft, Check, Pause, Play, RefreshCw, RotateCcw, SkipForward, StretchHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { StretchVideo } from '../components/video.jsx';
 import { useCountdown } from '../hooks/useCountdown.js';
@@ -69,6 +69,12 @@ function GuidedPlayer({ items, lang, onClose, onComplete, ofKey = 'guided_stretc
 
   const start = () => timer.start(currentPhase?.seconds ?? 0);
   const skip = () => advance(false);
+  // Step back to the previous phase; always wait for a manual start there.
+  const goBack = () => {
+    if (phaseIdx === 0) return;
+    setPhaseIdx(phaseIdx - 1);
+    timer.clear();
+  };
 
   const restart = () => {
     setFinished(false);
@@ -219,6 +225,11 @@ function GuidedPlayer({ items, lang, onClose, onComplete, ofKey = 'guided_stretc
 
       {!finished && (
         <div className="flex items-center justify-center gap-3 px-6 py-8 flex-wrap">
+          <button onClick={goBack} disabled={phaseIdx === 0}
+            className="f-mono uppercase tracking-[0.2em] px-5 py-3 text-xs flex items-center gap-2"
+            style={{ background: 'transparent', color: PALETTE.cream, border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', opacity: phaseIdx === 0 ? 0.35 : 1, cursor: phaseIdx === 0 ? 'not-allowed' : 'pointer' }}>
+            <ArrowLeft size={13} strokeWidth={2} style={{ transform: isRTL(lang) ? 'scaleX(-1)' : 'none' }} /> {t('ws_back', lang)}
+          </button>
           {awaitingStart ? (
             <button onClick={start}
               className="f-mono uppercase tracking-[0.2em] px-8 py-3.5 text-xs flex items-center gap-2"
