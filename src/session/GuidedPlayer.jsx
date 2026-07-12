@@ -168,6 +168,16 @@ function GuidedPlayer({ items, lang, onClose, onComplete, ofKey = 'guided_stretc
               </p>
             )}
 
+            {/* No embedded demo? Offer the search link so a demo is always a tap away. */}
+            {!currentPhase.item.video && currentPhase.item.query && (
+              <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(currentPhase.item.query)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="f-mono text-[10px] uppercase tracking-[0.2em] mt-3 inline-flex items-center gap-1.5 underline-hover"
+                style={{ color: PALETTE.sage }}>
+                {t('watch_form', lang)}
+              </a>
+            )}
+
             {currentPhase.item.video && (
               <div className="mt-7 mx-auto" style={{ width: '100%', maxWidth: 480 }}>
                 <StretchVideo

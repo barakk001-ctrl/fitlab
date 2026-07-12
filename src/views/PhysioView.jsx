@@ -1,6 +1,7 @@
-import { ArrowLeft, Bell, BellOff, HeartPulse, Play } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, ExternalLink, HeartPulse, Play } from 'lucide-react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ytSearch } from '../calc.js';
 import { StretchVideo } from '../components/video.jsx';
 import { MastHead, Pill } from '../components/shared.jsx';
 import { PHYSIO_AREAS } from '../data/physio.js';
@@ -89,6 +90,11 @@ function PhysioRow({ idx, item, lang }) {
           </span>
         </div>
         <p className="f-italic text-sm mt-1" style={{ opacity: 0.7 }}>{item.cue[lang]}</p>
+        <a href={ytSearch(item.query)} target="_blank" rel="noopener noreferrer"
+          className="f-mono text-[10px] uppercase tracking-[0.2em] mt-1.5 inline-flex items-center gap-1.5 underline-hover no-print"
+          style={{ color: PALETTE.forest, opacity: 0.85 }}>
+          {t('watch_form', lang)} <ExternalLink size={11} strokeWidth={2} />
+        </a>
         {item.video && (
           <div className="mt-3 no-print">
             <StretchVideo video={item.video} title={item.name.en} lazy maxWidth={400} />
