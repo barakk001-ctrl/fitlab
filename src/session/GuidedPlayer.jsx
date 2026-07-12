@@ -24,7 +24,7 @@ function buildPhases(items, lang) {
 // (iOS 16.4+ Safari/PWA, Android Chrome); a no-op where unsupported. Re-acquires
 // the lock when returning to the tab, since the OS drops it when backgrounded.
 
-function GuidedPlayer({ items, lang, onClose, onComplete }) {
+function GuidedPlayer({ items, lang, onClose, onComplete, ofKey = 'guided_stretch_of' }) {
   const phases = useMemo(() => buildPhases(items, lang), [items, lang]);
 
   // A phase is the first of its stretch when the item id differs from the previous phase.
@@ -146,7 +146,7 @@ function GuidedPlayer({ items, lang, onClose, onComplete }) {
         ) : (
           <div className="rise" style={{ width: '100%', maxWidth: 560 }}>
             <div className="f-mono text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: PALETTE.sage }}>
-              {t('guided_stretch_of', lang, { i: stretchNumber, n: items.length })}
+              {t(ofKey, lang, { i: stretchNumber, n: items.length })}
             </div>
 
             <h2 className="f-display font-bold" style={{ fontSize: 'clamp(32px,6vw,60px)', letterSpacing: '-0.03em', lineHeight: 1.02 }} dir="ltr">
@@ -159,6 +159,13 @@ function GuidedPlayer({ items, lang, onClose, onComplete }) {
                 {currentPhase.isSwitch && <RefreshCw size={12} strokeWidth={2} />}
                 {currentPhase.isSwitch ? t('guided_switch_side', lang) : currentPhase.side}
               </div>
+            )}
+
+            {/* Short how-to cue (physio sessions provide these) */}
+            {currentPhase.item.cue && (
+              <p className="f-italic text-sm md:text-base mt-3 mx-auto" style={{ opacity: 0.8, maxWidth: 460 }}>
+                {currentPhase.item.cue[lang]}
+              </p>
             )}
 
             {currentPhase.item.video && (

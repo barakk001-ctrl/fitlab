@@ -23,6 +23,7 @@ const ChallengeView = lazy(() => import('./views/ChallengeView.jsx').then((m) =>
 const StretchPicker = lazy(() => import('./views/StretchPicker.jsx').then((m) => ({ default: m.StretchPicker })));
 const StretchPlanView = lazy(() => import('./views/StretchPlanView.jsx').then((m) => ({ default: m.StretchPlanView })));
 const CustomBuilderView = lazy(() => import('./views/CustomBuilderView.jsx').then((m) => ({ default: m.CustomBuilderView })));
+const PhysioView = lazy(() => import('./views/PhysioView.jsx').then((m) => ({ default: m.PhysioView })));
 const GuidedPlayer = lazy(() => import('./session/GuidedPlayer.jsx').then((m) => ({ default: m.GuidedPlayer })));
 const GuidedWorkout = lazy(() => import('./session/GuidedWorkout.jsx').then((m) => ({ default: m.GuidedWorkout })));
 export default function FitLab() {
@@ -608,6 +609,12 @@ export default function FitLab() {
           onStartDay={handleStartChallengeDay}
           onSetDay={handleSetChallengeDay}
           onRestart={handleRestartChallenge}
+        />
+      ) : mode === 'physio' ? (
+        <PhysioView
+          lang={lang} setLang={setLang}
+          mode={mode} setMode={handleSetMode}
+          onComplete={() => recordActivity('physio')}
         />
       ) : mode === 'stretch' ? (
         view === 'picker' ? (

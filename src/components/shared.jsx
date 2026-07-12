@@ -1,4 +1,4 @@
-import { Dumbbell, Flame, Languages, Moon, StretchHorizontal, Sun, TrendingUp } from 'lucide-react';
+import { Dumbbell, Flame, HeartPulse, Languages, Moon, StretchHorizontal, Sun, TrendingUp } from 'lucide-react';
 import { useContext } from 'react';
 import { t } from '../i18n.js';
 import { PALETTE, ThemeContext } from '../theme.js';
@@ -35,6 +35,7 @@ function MastHead({ subtitle, lang, setLang, mode, setMode }) {
             {[
               { id: 'workout', key: 'mode_workout', icon: Dumbbell },
               { id: 'stretch', key: 'mode_stretch', icon: StretchHorizontal },
+              { id: 'physio', key: 'mode_physio', icon: HeartPulse },
               { id: 'challenge', key: 'mode_challenge', icon: Flame },
               { id: 'progress', key: 'mode_progress', icon: TrendingUp },
             ].map((m) => {
