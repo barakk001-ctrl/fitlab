@@ -105,11 +105,25 @@ function PhysioRow({ idx, item, lang }) {
   );
 }
 
+const ROUNDS_PREF_KEY = 'fitlab:physio-rounds';
+
 function PhysioView({ lang, setLang, mode, setMode, onComplete }) {
   const [areaId, setAreaId] = useState(null);
   const [guidedOpen, setGuidedOpen] = useState(false);
+  const [rounds, setRounds] = useState(() => {
+    try { return Math.min(3, Math.max(1, parseInt(window.localStorage.getItem(ROUNDS_PREF_KEY), 10) || 1)); } catch { return 1; }
+  });
+  const pickRounds = (r) => {
+    setRounds(r);
+    try { window.localStorage.setItem(ROUNDS_PREF_KEY, String(r)); } catch {}
+  };
   const area = PHYSIO_AREAS.find((a) => a.id === areaId) || null;
-  const minutes = area ? Math.max(1, Math.round(estimateRoutineDuration(area.session) / 60)) : 0;
+  const minutes = area ? Math.max(1, Math.round((estimateRoutineDuration(area.session) * rounds) / 60)) : 0;
+  // Repeat the circuit per round; unique ids keep player keys distinct across rounds.
+  const guidedItems = area
+    ? Array.from({ length: rounds }).flatMap((_, r) =>
+        area.session.map((it) => (r === 0 ? it : { ...it, id: `${it.id}-r${r}` })))
+    : [];
 
   return (
     <div className="rise">
@@ -181,6 +195,30 @@ function PhysioView({ lang, setLang, mode, setMode, onComplete }) {
             </div>
           </section>
 
+          <section className="px-6 md:px-12 pb-4 no-print">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: PALETTE.forest }}>
+                {t('physio_rounds', lang)}
+              </span>
+              {[1, 2, 3].map((r) => {
+                const active = rounds === r;
+                return (
+                  <button key={r} onClick={() => pickRounds(r)} aria-pressed={active}
+                    className="f-mono text-[11px] tracking-wider px-3.5 py-1.5"
+                    style={{
+                      background: active ? PALETTE.forest : 'transparent',
+                      color: active ? PALETTE.cream : PALETTE.ink,
+                      border: `1px solid ${active ? PALETTE.forest : PALETTE.ink}`,
+                      borderRadius: '999px', cursor: 'pointer',
+                    }} dir="ltr">
+                    ×{r}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="f-italic text-xs mt-2 max-w-xl" style={{ opacity: 0.65 }}>{t('physio_rounds_hint', lang)}</p>
+          </section>
+
           <section className="px-6 md:px-12 pb-16 no-print">
             <button onClick={() => setGuidedOpen(true)}
               className="card-tilt w-full p-6 md:p-8 flex items-center justify-between gap-4 flex-wrap"
@@ -194,7 +232,7 @@ function PhysioView({ lang, setLang, mode, setMode, onComplete }) {
                     {t('physio_start', lang)}
                   </div>
                   <div className="f-mono text-[10px] uppercase tracking-[0.25em] mt-1" style={{ color: PALETTE.sage }}>
-                    {t('physio_moves', lang, { n: area.session.length })} · {t('physio_min', lang, { m: minutes })}
+                    {t('physio_moves', lang, { n: area.session.length })} <span dir="ltr">×{rounds}</span> · {t('physio_min', lang, { m: minutes })}
                   </div>
                 </div>
               </div>
@@ -205,7 +243,7 @@ function PhysioView({ lang, setLang, mode, setMode, onComplete }) {
               the containing block for the player's position:fixed overlay. */}
           {guidedOpen && createPortal(
             <GuidedPlayer
-              items={area.session}
+              items={guidedItems}
               lang={lang}
               ofKey="guided_move_of"
               onClose={() => setGuidedOpen(false)}
