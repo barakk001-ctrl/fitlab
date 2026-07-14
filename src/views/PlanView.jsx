@@ -98,14 +98,14 @@ function PlanView({
           style={{ fontSize: 'clamp(36px, 6vw, 80px)', color: PALETTE.ink, letterSpacing: '-0.04em' }}>
           {lang === 'he' ? (
             <>
-              {t('plan_h1_the', lang)} <span className="f-italic" style={{ color: PALETTE.forest }}>{goals.length > 1 ? t('plan_h1_hybrid', lang) : headlineGoals}</span>
-              {' '}<span className="f-italic" style={{ color: PALETTE.rust }}>ל{t(ageObj.labelKey, lang).replace('שנות ה', '')}</span>{t('plan_h1_plan', lang)}
+              {t('plan_h1_the', lang)} <span className="f-accent" style={{ color: PALETTE.forest }}>{goals.length > 1 ? t('plan_h1_hybrid', lang) : headlineGoals}</span>
+              {' '}<span className="f-accent" style={{ color: PALETTE.rust }}>ל{t(ageObj.labelKey, lang).replace('שנות ה', '')}</span>{t('plan_h1_plan', lang)}
             </>
           ) : (
             <>
-              The <span className="f-italic" style={{ color: PALETTE.rust }}>{t(ageObj.labelKey, lang)}</span><br />
+              The <span className="f-accent" style={{ color: PALETTE.rust }}>{t(ageObj.labelKey, lang)}</span><br />
               {goals.length > 1 ? 'hybrid' : headlineGoals}{' '}
-              <span className="f-italic" style={{ color: PALETTE.forest }}>plan</span>.
+              <span className="f-accent" style={{ color: PALETTE.forest }}>plan</span>.
             </>
           )}
         </h1>
@@ -132,7 +132,7 @@ function PlanView({
             value={
               <span dir="ltr">
                 {weightDisplay}
-                <span className="f-italic mx-2" style={{ color: PALETTE.rust, fontSize: '0.6em' }}>
+                <span className="f-accent mx-2" style={{ color: PALETTE.rust, fontSize: '0.6em' }}>
                   {isRTL(lang) ? '←' : '→'}
                 </span>
                 {targetDisplay}
@@ -302,7 +302,7 @@ function PlanView({
               {t('diet_day_label', lang)}
             </div>
             <h3 className="f-display font-bold text-2xl md:text-3xl" style={{ letterSpacing: '-0.02em' }}>
-              <span className="f-italic" style={{ color: PALETTE.sage }}>{t('diet_sample', lang)}</span>{' '}{t('diet_day', lang)}
+              <span className="f-accent" style={{ color: PALETTE.sage }}>{t('diet_sample', lang)}</span>{' '}{t('diet_day', lang)}
             </h3>
             <div className="mt-5 space-y-1">
               {diet.sampleDay.map((meal) => {

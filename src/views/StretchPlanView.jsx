@@ -89,9 +89,9 @@ function StretchPlanView({
         <h1 className="f-display leading-[0.92] font-bold"
           style={{ fontSize: 'clamp(36px, 6vw, 80px)', color: PALETTE.ink, letterSpacing: '-0.04em' }}>
           {lang === 'he' ? (
-            <>{t('stretch_the', lang)} <span className="f-italic" style={{ color: PALETTE.rust }}>{routine.label[lang]}</span></>
+            <>{t('stretch_the', lang)} <span className="f-accent" style={{ color: PALETTE.rust }}>{routine.label[lang]}</span></>
           ) : (
-            <>The <span className="f-italic" style={{ color: PALETTE.rust }}>{routine.label[lang]}</span> <span className="f-italic" style={{ color: PALETTE.forest }}>routine</span>.</>
+            <>The <span className="f-accent" style={{ color: PALETTE.rust }}>{routine.label[lang]}</span> <span className="f-accent" style={{ color: PALETTE.forest }}>routine</span>.</>
           )}
         </h1>
         <blockquote className="f-italic mt-6 max-w-3xl text-lg md:text-2xl leading-snug"

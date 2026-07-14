@@ -7,12 +7,16 @@ function FontStyles() {
       @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&family=Manrope:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;600;700;800&family=Noto+Serif+Hebrew:wght@400;600;800&display=swap');
 
       .f-display { font-family: 'Fraunces', 'Noto Serif Hebrew', Georgia, serif; font-optical-sizing: auto; font-variation-settings: 'opsz' 144; letter-spacing: -0.02em; }
-      .f-italic { font-family: 'Fraunces', 'Noto Serif Hebrew', Georgia, serif; font-style: italic; font-variation-settings: 'opsz' 144; letter-spacing: -0.01em; }
+      /* Serif-italic accents INSIDE display headings (logo, hero highlight words). */
+      .f-accent { font-family: 'Fraunces', 'Noto Serif Hebrew', Georgia, serif; font-style: italic; font-variation-settings: 'opsz' 144; letter-spacing: -0.01em; }
+      /* Secondary/descriptive text — was serif italic, now upright sans for readability
+         (small italic serif was hard to read, especially the faux-oblique Hebrew). */
+      .f-italic { font-family: 'Manrope', 'Heebo', system-ui, sans-serif; font-style: normal; }
       .f-body { font-family: 'Manrope', 'Heebo', system-ui, sans-serif; }
       .f-mono { font-family: 'Manrope', 'Heebo', system-ui, sans-serif; font-feature-settings: 'tnum' 1; letter-spacing: 0.04em; }
 
-      [dir="rtl"] .f-display, [dir="rtl"] .f-italic { font-family: 'Noto Serif Hebrew', 'Fraunces', Georgia, serif; }
-      [dir="rtl"] .f-body, [dir="rtl"] .f-mono { font-family: 'Heebo', 'Manrope', system-ui, sans-serif; }
+      [dir="rtl"] .f-display, [dir="rtl"] .f-accent { font-family: 'Noto Serif Hebrew', 'Fraunces', Georgia, serif; }
+      [dir="rtl"] .f-body, [dir="rtl"] .f-mono, [dir="rtl"] .f-italic { font-family: 'Heebo', 'Manrope', system-ui, sans-serif; }
 
       .grain::before {
         content: '';

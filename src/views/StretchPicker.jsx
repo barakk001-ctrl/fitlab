@@ -105,9 +105,9 @@ function StretchPicker({
         <h1 className="f-display mt-6 leading-[0.92]"
           style={{ color: PALETTE.ink, fontSize: 'clamp(42px, 7.5vw, 110px)', fontWeight: 800 }}>
           {lang === 'he' ? (
-            <>למתוח <span className="f-italic" style={{ color: PALETTE.rust }}>בכוונה</span><br />לא במקרה.</>
+            <>למתוח <span className="f-accent" style={{ color: PALETTE.rust }}>בכוונה</span><br />לא במקרה.</>
           ) : (
-            <>Stretch with <span className="f-italic" style={{ color: PALETTE.rust }}>intention</span><br />not by <span className="f-italic" style={{ color: PALETTE.forest }}>accident</span>.</>
+            <>Stretch with <span className="f-accent" style={{ color: PALETTE.rust }}>intention</span><br />not by <span className="f-accent" style={{ color: PALETTE.forest }}>accident</span>.</>
           )}
         </h1>
         <p className="f-body mt-8 max-w-xl text-base md:text-lg leading-relaxed" style={{ color: PALETTE.ink, opacity: 0.78 }}>

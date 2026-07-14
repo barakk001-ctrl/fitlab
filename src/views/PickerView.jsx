@@ -133,9 +133,9 @@ function PickerView(props) {
         <h1 className="f-display mt-6 leading-[0.92]"
           style={{ color: PALETTE.ink, fontSize: 'clamp(42px, 7.5vw, 110px)', fontWeight: 800 }}>
           {lang === 'he' ? (
-            <>אימון לעשור<br /><span className="f-italic" style={{ color: PALETTE.rust }}>בו אתם</span> <span className="f-italic" style={{ color: PALETTE.forest }}>באמת</span> נמצאים.</>
+            <>אימון לעשור<br /><span className="f-accent" style={{ color: PALETTE.rust }}>בו אתם</span> <span className="f-accent" style={{ color: PALETTE.forest }}>באמת</span> נמצאים.</>
           ) : (
-            <>Train for the <span className="f-italic" style={{ color: PALETTE.rust }}>decade</span><br />you're <span className="f-italic" style={{ color: PALETTE.forest }}>actually</span> in.</>
+            <>Train for the <span className="f-accent" style={{ color: PALETTE.rust }}>decade</span><br />you're <span className="f-accent" style={{ color: PALETTE.forest }}>actually</span> in.</>
           )}
         </h1>
         <p className="f-body mt-8 max-w-xl text-base md:text-lg leading-relaxed" style={{ color: PALETTE.ink, opacity: 0.78 }}>

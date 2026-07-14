@@ -21,7 +21,7 @@ function MastHead({ subtitle, lang, setLang, mode, setMode }) {
       style={{ borderBottom: `1px solid ${PALETTE.ink}` }}>
       <div className="flex items-center gap-3">
         <div className="f-display text-2xl md:text-3xl font-bold" style={{ color: PALETTE.ink, letterSpacing: '-0.04em' }}>
-          Fit<span className="f-italic" style={{ color: PALETTE.rust }}>Lab</span>
+          Fit<span className="f-accent" style={{ color: PALETTE.rust }}>Lab</span>
         </div>
         <div className="f-mono text-[10px] uppercase tracking-[0.25em] hidden sm:block" style={{ color: PALETTE.ink }}>
           {t('edition', lang)}
