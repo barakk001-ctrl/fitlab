@@ -263,7 +263,8 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   };
   const prev = () => { stopTimers(); setStepIdx((i) => Math.max(0, i - 1)); };
   const schedulePushForRest = (seconds) =>
-    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '')
+    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), step ? t('notif_next_up', lang, { name: step.ex.name }) : '',
+      { label: t('notif_run_again', lang), confirm: t('notif_rest_running', lang, { s: seconds }) })
       .then((ok) => { pushArmedRef.current = ok; });
   const startRest = () => {
     // Permission prompt must come from this user gesture (iOS requirement);

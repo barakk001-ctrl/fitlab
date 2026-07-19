@@ -1,6 +1,6 @@
 // FitLab service worker — app-shell offline support.
 // Bump CACHE when the shell list changes to evict old caches.
-const CACHE = 'fitlab-v4';
+const CACHE = 'fitlab-v5';
 const CORE = [
   '/',
   '/index.html',
@@ -30,21 +30,57 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch {}
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'FitLab', {
-      body: data.body || '',
-      tag: data.tag || 'fitlab-timer',
-      renotify: true,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      vibrate: [200, 80, 200],
-    })
-  );
+  const opts = {
+    body: data.body || '',
+    tag: data.tag || 'fitlab-timer',
+    renotify: true,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [200, 80, 200],
+  };
+  if (data.again) {
+    // "Run again" action: rescheduling happens entirely in the SW (below),
+    // so another rest can start without opening the app.
+    opts.actions = [{ action: 'again', title: data.again.label }];
+    opts.data = { again: data.again };
+  }
+  event.waitUntil(self.registration.showNotification(data.title || 'FitLab', opts));
 });
 
-// Tapping a timer notification focuses the app (or reopens it).
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const again = event.notification.data && event.notification.data.again;
+
+  if (event.action === 'again' && again) {
+    // Rearm the same timer server-side; the chain stays repeatable.
+    event.waitUntil((async () => {
+      try {
+        const sub = await self.registration.pushManager.getSubscription();
+        if (!sub) return;
+        await fetch('/api/push/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: 'again-' + Math.random().toString(36).slice(2, 10),
+            subscription: sub.toJSON(),
+            delaySeconds: again.seconds,
+            title: again.title,
+            body: again.body,
+            again: { label: again.label, confirm: again.confirm },
+          }),
+        });
+        if (again.confirm) {
+          await self.registration.showNotification(again.confirm, {
+            tag: 'fitlab-timer', silent: true,
+            icon: '/icon-192.png', badge: '/icon-192.png',
+          });
+        }
+      } catch {}
+    })());
+    return;
+  }
+
+  // Default tap: focus the app (or reopen it).
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const client = list.find((w) => 'focus' in w);

@@ -32,7 +32,8 @@ function RestTimer({ exercise, lang, onClose }) {
   });
   const { secondsLeft, paused } = timer;
   const schedule = (seconds) =>
-    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), exercise?.name || '')
+    schedulePush(pushIdRef.current, seconds, t('notif_rest_done', lang), exercise?.name || '',
+      { label: t('notif_run_again', lang), confirm: t('notif_rest_running', lang, { s: seconds }) })
       .then((ok) => { pushArmedRef.current = ok; });
 
   // The timer opens from a click, so the transient activation usually still

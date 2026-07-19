@@ -121,15 +121,17 @@ async function getPushSubscription() {
 }
 
 // Schedule a push for `delaySeconds` from now. Same id replaces the previous
-// schedule. Returns true if the server accepted it.
-async function schedulePush(id, delaySeconds, title, body) {
+// schedule. Returns true if the server accepted it. Pass `again` ({label,
+// confirm}, pre-localized) to give the notification a "run again" action that
+// restarts the same timer straight from the notification.
+async function schedulePush(id, delaySeconds, title, body, again) {
   try {
     const sub = await getPushSubscription();
     if (!sub) return false;
     const res = await fetch('/api/push/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, subscription: sub.toJSON(), delaySeconds, title, body }),
+      body: JSON.stringify({ id, subscription: sub.toJSON(), delaySeconds, title, body, again }),
     });
     return res.ok;
   } catch { return false; }

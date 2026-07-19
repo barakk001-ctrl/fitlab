@@ -119,7 +119,7 @@ app.get('/api/push/pubkey', (req, res) => res.json({ key: pushEnabled ? VAPID_PU
 
 app.post('/api/push/schedule', (req, res) => {
   if (!pushEnabled) return res.status(503).json({ ok: false, error: 'push disabled' });
-  const { id, subscription, delaySeconds, title, body } = req.body || {};
+  const { id, subscription, delaySeconds, title, body, again } = req.body || {};
   const delay = Number(delaySeconds);
   if (typeof id !== 'string' || !id || id.length > 64) return res.status(400).json({ ok: false, error: 'bad id' });
   if (!Number.isFinite(delay) || delay < 1 || delay > 3600) return res.status(400).json({ ok: false, error: 'bad delay' });
@@ -130,13 +130,24 @@ app.post('/api/push/schedule', (req, res) => {
   if (typeof title !== 'string' || title.length > 120 || (body != null && (typeof body !== 'string' || body.length > 200))) {
     return res.status(400).json({ ok: false, error: 'bad payload' });
   }
+  // Optional "run again" descriptor: the SW gets an action button that
+  // reschedules this same push. label/confirm arrive pre-localized.
+  if (again != null && (typeof again !== 'object' || typeof again.label !== 'string' || again.label.length === 0 || again.label.length > 40 ||
+      (again.confirm != null && (typeof again.confirm !== 'string' || again.confirm.length > 80)))) {
+    return res.status(400).json({ ok: false, error: 'bad again' });
+  }
   if (!pending.has(id) && pending.size >= MAX_PENDING) return res.status(429).json({ ok: false, error: 'too many pending' });
 
   if (pending.has(id)) clearTimeout(pending.get(id)); // reschedule replaces
+  const payload = JSON.stringify({
+    title,
+    body: body || '',
+    again: again ? { seconds: delay, title, body: body || '', label: again.label, confirm: again.confirm } : undefined,
+  });
   const handle = setTimeout(async () => {
     pending.delete(id);
     try {
-      await webpush.sendNotification(subscription, JSON.stringify({ title, body: body || '' }), { TTL: 120 });
+      await webpush.sendNotification(subscription, payload, { TTL: 120 });
     } catch (e) {
       console.warn('push send failed:', e.statusCode || e.message);
     }
