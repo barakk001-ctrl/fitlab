@@ -574,6 +574,28 @@ export default function FitLab() {
     if (view === 'plan') window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [view]);
 
+  // "Run again" from a rest-over notification: the SW hands us the duration —
+  // via ?again=N on a cold open, or a message when the app was already alive —
+  // and we open the floating rest dock already counting. (iOS shows no action
+  // buttons on push notifications, so there the body tap is the run-again.)
+  useEffect(() => {
+    const startAgain = (seconds) => {
+      const s = parseInt(seconds, 10);
+      if (s > 0) setActiveTimer({ name: '', restSeconds: s });
+    };
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('again')) {
+        startAgain(url.searchParams.get('again'));
+        url.searchParams.delete('again');
+        window.history.replaceState({}, '', url.pathname + (url.search || ''));
+      }
+    } catch {}
+    const onMsg = (e) => { if (e.data?.type === 'fitlab-again') startAgain(e.data.seconds); };
+    navigator.serviceWorker?.addEventListener?.('message', onMsg);
+    return () => navigator.serviceWorker?.removeEventListener?.('message', onMsg);
+  }, []);
+
   return (
    <ThemeContext.Provider value={{ theme, toggleTheme }}>
     <div

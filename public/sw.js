@@ -1,6 +1,6 @@
 // FitLab service worker — app-shell offline support.
 // Bump CACHE when the shell list changes to evict old caches.
-const CACHE = 'fitlab-v5';
+const CACHE = 'fitlab-v6';
 const CORE = [
   '/',
   '/index.html',
@@ -80,11 +80,18 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Default tap: focus the app (or reopen it).
+  // Default tap: focus the app (or reopen it). For rest-over notifications,
+  // hand the app the duration so it opens with a new rest already running —
+  // iOS never renders action buttons, so the body tap IS "run again" there.
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const client = list.find((w) => 'focus' in w);
-      return client ? client.focus() : self.clients.openWindow('/');
+      if (client) {
+        client.focus();
+        if (again) client.postMessage({ type: 'fitlab-again', seconds: again.seconds });
+        return;
+      }
+      return self.clients.openWindow(again ? '/?again=' + again.seconds : '/');
     })
   );
 });

@@ -42,11 +42,17 @@ function RestTimer({ exercise, lang, onClose }) {
   useEffect(() => { ensureNotifyPermission(); }, []);
   useEffect(() => () => cancelPush(pushIdRef.current), []); // never fire after close
 
-  // When a different exercise is opened, reset duration to that exercise's default
+  // Every newly-handed timer object restarts the countdown at its duration —
+  // covers switching exercises AND "run again" hand-offs from notifications
+  // (standalone timers have no id, so key on the object identity).
   useEffect(() => {
-    const next = exercise?.restSeconds ?? 90;
-    setDuration(Math.min(120, Math.max(30, next)));
-  }, [exercise?.id]);
+    const next = Math.min(120, Math.max(30, exercise?.restSeconds ?? 90));
+    setDuration(next);
+    setDone(false);
+    timer.start(next);
+    schedule(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise]);
 
   // When duration changes (user moves slider, or new exercise), restart the countdown
   useEffect(() => {
