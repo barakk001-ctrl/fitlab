@@ -50,6 +50,9 @@ const EX = {
   'chest-row':    { name: 'Chest-Supported Row', movement: 'h-pull', equip: 'gym',  ages: ['20s','30s','40s'], query: 'chest supported row' },
   'inverted-row': { name: 'Inverted Row',        movement: 'h-pull', equip: 'cali', ages: ['20s','30s','40s'], query: 'inverted row' },
   'tabletop-row': { name: 'Tabletop Row',        movement: 'h-pull', equip: 'cali', ages: ['30s','40s'],       query: 'tabletop bodyweight row' },
+  'towel-row':    { name: 'Doorway Towel Row',   movement: 'h-pull', equip: 'cali', ages: ['20s','30s','40s'], query: 'towel row door bodyweight' },
+  'band-row':     { name: 'Band Row',            movement: 'h-pull', equip: 'cali', ages: ['20s','30s','40s'], query: 'resistance band bent over row' },
+  'band-pulldown':{ name: 'Band Lat Pulldown',   movement: 'v-pull', equip: 'cali', ages: ['20s','30s','40s'], query: 'resistance band lat pulldown' },
 
   'plank':        { name: 'Plank',               movement: 'core',   equip: 'cali', ages: ['20s','30s','40s'], query: 'forearm plank' },
   'side-plank':   { name: 'Side Plank',          movement: 'core',   equip: 'cali', ages: ['20s','30s','40s'], query: 'side plank' },
@@ -108,6 +111,7 @@ const EX_VIDEOS = {
   'assisted-pull': 'XxV8q2Qxhrc', 'chin-up': 'e1YSApl-QcM', 'bb-row': 'G8l_8chR5BE',
   'db-row': 'nMFCMNKnLgQ', 'cable-row': '7BkgqzC6WsM', 'chest-row': '_b6ch2nIchk',
   'inverted-row': '11F_O_sZ1Z4', 'tabletop-row': 'dnpDUwqMX04', 'plank': 'mH5Sfb_KTGg',
+  'towel-row': '62NT4yA4igM', 'band-row': 'tcMmJ3c5P8c', 'band-pulldown': 'SkT4rqrmH-M',
   'side-plank': '44ND4bOB-T0', 'bird-dog': 'ZdAHe9_HeEw', 'dead-bug': 'bxn9FBrt4-A',
   'hanging-lr': 'vwl68EF9M2Q', 'hanging-kr': 'G6a5267YpHM', 'cable-chop': 'yPvAj_X_5NM',
   'pallof-press': 'P16SQlmWj1o', 'burpee': 'G2hv_NYhM-A', 'mtn-climber': 'CQk4MHY2_Tc',
@@ -135,4 +139,18 @@ const EX_NAME_VIDEO = Object.fromEntries(
   Object.entries(EX).map(([id, ex]) => [ex.name, EX_VIDEOS[id] || null])
 );
 
-export { EX, EX_VIDEOS, EX_NAME_VIDEO };
+// Human-readable movement-pattern labels for the substitute finder.
+const MOVEMENT_LABELS = {
+  squat: { en: 'Squat pattern', he: 'תבנית סקוואט' },
+  hinge: { en: 'Hip hinge', he: 'ציר ירך' },
+  'h-push': { en: 'Horizontal push', he: 'דחיקה אופקית' },
+  'v-push': { en: 'Vertical push', he: 'דחיקה אנכית' },
+  'h-pull': { en: 'Row (horizontal pull)', he: 'חתירה (משיכה אופקית)' },
+  'v-pull': { en: 'Vertical pull', he: 'משיכה אנכית' },
+  core: { en: 'Core', he: 'ליבה' },
+  'leg-acc': { en: 'Single-leg / legs accessory', he: 'רגל אחת / אביזרי רגליים' },
+  cardio: { en: 'Cardio', he: 'אירובי' },
+  mobility: { en: 'Mobility', he: 'ניידות' },
+};
+
+export { EX, EX_VIDEOS, EX_NAME_VIDEO, MOVEMENT_LABELS };

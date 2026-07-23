@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ListChecks, Ruler, Scale, Sparkles, Target, Timer, User } from 'lucide-react';
+import { CalendarDays, Check, ListChecks, Ruler, Scale, Shuffle, Sparkles, Target, Timer, User } from 'lucide-react';
 import { SavedPlansSection } from '../components/SavedPlansSection.jsx';
 import { MastHead, Pill, StatField } from '../components/shared.jsx';
 import { AGE_GROUPS, GOALS, SPLITS } from '../data/plans.js';
@@ -119,7 +119,7 @@ function PickerView(props) {
     weight, setWeight, targetWeight, setTargetWeight,
     statsValid, setLang,
     savedPlans, onLoadPlan, onDeletePlan,
-    mode, setMode, onBuildOwn, onOpenTimer,
+    mode, setMode, onBuildOwn, onFindSwap, onOpenTimer,
   } = props;
   const goalsValid = goals.length >= 1 && goals.length <= 3;
   const ready = age && goalsValid && split && statsValid;
@@ -147,6 +147,13 @@ function PickerView(props) {
             style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
             <ListChecks size={13} strokeWidth={2} /> {t('build_own', lang)}
           </button>
+          {onFindSwap && (
+            <button onClick={onFindSwap}
+              className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 px-5 py-3"
+              style={{ background: 'transparent', color: PALETTE.ink, border: `1px solid ${PALETTE.ink}`, borderRadius: '999px' }}>
+              <Shuffle size={13} strokeWidth={2} /> {t('find_swap', lang)}
+            </button>
+          )}
           {onOpenTimer && (
             <button onClick={onOpenTimer}
               className="f-mono text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 px-5 py-3"

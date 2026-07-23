@@ -25,6 +25,7 @@ const StretchPicker = lazy(() => import('./views/StretchPicker.jsx').then((m) =>
 const StretchPlanView = lazy(() => import('./views/StretchPlanView.jsx').then((m) => ({ default: m.StretchPlanView })));
 const CustomBuilderView = lazy(() => import('./views/CustomBuilderView.jsx').then((m) => ({ default: m.CustomBuilderView })));
 const PhysioView = lazy(() => import('./views/PhysioView.jsx').then((m) => ({ default: m.PhysioView })));
+const SwapFinderView = lazy(() => import('./views/SwapFinderView.jsx').then((m) => ({ default: m.SwapFinderView })));
 const GuidedPlayer = lazy(() => import('./session/GuidedPlayer.jsx').then((m) => ({ default: m.GuidedPlayer })));
 const GuidedWorkout = lazy(() => import('./session/GuidedWorkout.jsx').then((m) => ({ default: m.GuidedWorkout })));
 export default function FitLab() {
@@ -667,6 +668,12 @@ export default function FitLab() {
             onStartGuided={() => setGuidedOpen(true)}
           />
         )
+      ) : view === 'swap' ? (
+        <SwapFinderView
+          lang={lang} setLang={setLang}
+          mode={mode} setMode={handleSetMode}
+          onBack={() => setView('picker')}
+        />
       ) : view === 'custom' ? (
         <CustomBuilderView
           lang={lang} setLang={setLang}
@@ -690,6 +697,7 @@ export default function FitLab() {
           onPickAge={setAge} onToggleGoal={toggleGoal} onPickSplit={setSplit}
           onSubmit={() => age && goals.length && split && statsValid && setView('plan')}
           onBuildOwn={() => setView('custom')}
+          onFindSwap={() => setView('swap')}
           onOpenTimer={() => setActiveTimer({ name: '', restSeconds: 60 })}
           units={units} setUnits={setUnits}
           sex={sex} setSex={setSex}
