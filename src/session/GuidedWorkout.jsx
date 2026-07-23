@@ -1,6 +1,7 @@
-import { ArrowLeft, Check, Clock, Dumbbell, RotateCcw, SkipForward, Timer, X } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Dumbbell, RotateCcw, Shuffle, SkipForward, Timer, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StretchVideo } from '../components/video.jsx';
+import { EX, EX_VIDEOS, MOVEMENT_LABELS } from '../data/exercises.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import { isRTL, t } from '../i18n.js';
 import { IS_IOS, buzz, cancelPush, ensureNotifyPermission, notify, playBeep, schedulePush, startPhoneTimer } from '../media.js';
@@ -119,8 +120,20 @@ function parseTargetTop(target) {
   return m ? parseInt(m[2] || m[1], 10) : null;
 }
 
+// Library lookup by display name — session exercises from the challenge or
+// custom builder don't carry a movement tag, but their names match the library.
+const EX_BY_NAME = Object.fromEntries(Object.entries(EX).map(([id, e]) => [e.name, { id, ...e }]));
+
 function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComplete, onLog, onLogSet, loggedSets = [], setHistory = [], weightUnit = 'kg' }) {
   const kgToDisplay = (kg) => (weightUnit === 'lb' ? Math.round(kg * 2.20462 * 10) / 10 : kg);
+
+  // Mid-session swaps: exIdx -> replacement fields. The prescription and rest
+  // stay from the original slot; only the movement's face changes.
+  const [overrides, setOverrides] = useState({});
+  const [swapOpen, setSwapOpen] = useState(false);
+  const sessionExercises = useMemo(
+    () => exercises.map((ex, i) => (overrides[i] ? { ...ex, ...overrides[i] } : ex)),
+    [exercises, overrides]);
 
   // Last previous session per exercise: sets from the most recent day before today.
   const lastByName = useMemo(() => {
@@ -149,7 +162,7 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
     const inc = weightUnit === 'lb' ? 5 : 2.5;
     return { value: Math.round((bumped ? maxDisp + inc : maxDisp) * 10) / 10, bumped };
   };
-  const steps = useMemo(() => buildWorkoutSteps(exercises), [exercises]);
+  const steps = useMemo(() => buildWorkoutSteps(sessionExercises), [sessionExercises]);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -178,6 +191,27 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
   const timedSec = step ? parseTimedSeconds(step.target) : null;
   const lastSets = step && !timedSec ? lastByName[step.ex.name] : null;
   const suggestion = lastSets ? suggestFor(lastSets, step.target) : null;
+
+  // Same-movement alternatives for the current exercise (same equip first).
+  const stepMovement = step ? (step.ex.movement || EX_BY_NAME[step.ex.name]?.movement || null) : null;
+  const swapOptions = useMemo(() => {
+    if (!stepMovement || !step) return [];
+    const currentEquip = step.ex.equip || EX_BY_NAME[step.ex.name]?.equip;
+    return Object.entries(EX)
+      .filter(([, e]) => e.movement === stepMovement && e.name !== step.ex.name)
+      .map(([id, e]) => ({ id, ...e, video: EX_VIDEOS[id] || null }))
+      .sort((a, b) =>
+        ((a.equip === currentEquip ? 0 : 1) - (b.equip === currentEquip ? 0 : 1)) ||
+        a.name.localeCompare(b.name));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepMovement, step && step.ex.name]);
+  const applySwap = (alt) => {
+    setOverrides((prev) => ({
+      ...prev,
+      [step.exIdx]: { id: alt.id, name: alt.name, video: alt.video, query: alt.query, movement: alt.movement, equip: alt.equip },
+    }));
+    setSwapOpen(false);
+  };
 
   // Rest countdown — driven by an absolute deadline; recomputes on return.
   useEffect(() => {
@@ -422,6 +456,14 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
               {step.ex.name}
             </h2>
 
+            {swapOptions.length > 0 && (
+              <button onClick={() => setSwapOpen(true)}
+                className="f-mono text-[10px] uppercase tracking-[0.25em] mt-2 inline-flex items-center gap-1.5 underline-hover"
+                style={{ color: PALETTE.sage }}>
+                <Shuffle size={11} strokeWidth={2} /> {t('ws_swap_title', lang)}
+              </button>
+            )}
+
             {step.totalSets > 1 && (
               <div className="f-mono text-xs uppercase tracking-[0.25em] mt-3 inline-flex items-center gap-2 px-3 py-1.5"
                 style={{ border: `1px solid rgba(242,235,221,0.4)`, borderRadius: '999px', color: PALETTE.cream }}>
@@ -473,6 +515,38 @@ function GuidedWorkout({ exercises, trackLabel, dayName, lang, onClose, onComple
           </div>
         ) : null}
       </div>
+
+      {/* In-session swap panel: same-movement alternatives, same-equip first. */}
+      {swapOpen && step && (
+        <div className="absolute inset-0 z-10 flex items-end sm:items-center justify-center p-4"
+          style={{ background: 'rgba(21,20,15,0.72)' }} onClick={() => setSwapOpen(false)}>
+          <div className="w-full sm:max-w-md overflow-y-auto p-5" style={{ maxHeight: '72%', background: PALETTE.ink, border: `1px solid rgba(242,235,221,0.35)`, borderRadius: 14 }}
+            onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('ws_swap_title', lang)}>
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <div className="f-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: PALETTE.sage }}>
+                {t('ws_swap_title', lang)}
+              </div>
+              <button onClick={() => setSwapOpen(false)} aria-label="Close" style={{ color: PALETTE.cream, opacity: 0.6 }}>
+                <X size={14} strokeWidth={2} />
+              </button>
+            </div>
+            <p className="f-italic text-xs mb-3" style={{ color: PALETTE.cream, opacity: 0.65 }}>
+              {MOVEMENT_LABELS[stepMovement]?.[lang]} · {t('ws_swap_note', lang)}
+            </p>
+            {swapOptions.map((alt) => (
+              <button key={alt.id} onClick={() => applySwap(alt)}
+                className="flex items-center justify-between gap-3 w-full text-start f-body text-sm px-3 py-2.5"
+                style={{ color: PALETTE.cream, borderBottom: `1px solid rgba(242,235,221,0.15)` }}>
+                <span dir="ltr">{alt.name}</span>
+                <span className="f-mono text-[9px] uppercase tracking-[0.15em] px-2 py-0.5"
+                  style={{ color: alt.equip === 'gym' ? PALETTE.rust : PALETTE.sage, border: `1px solid currentColor`, borderRadius: '999px' }}>
+                  {alt.equip === 'gym' ? t('swap_gym', lang) : t('swap_home', lang)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!finished && (
         <div className="flex items-center justify-center gap-3 px-6 py-8 flex-wrap">
